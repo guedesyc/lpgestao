@@ -231,6 +231,35 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
       continue;
     }
 
+    if (sheet === "DESPESAS OPERACIONAIS") {
+      let totalIndex = -1;
+      rows.forEach((row, rowIndex) => {
+        const labels = row.map((cell) => clean(cell));
+        const detectedTotalIndex = labels.findIndex(isTotalHeader);
+        const startsBlock = labels.some((label) => label.startsWith("BLOCO "));
+        if (startsBlock && detectedTotalIndex >= 0) {
+          totalIndex = detectedTotalIndex;
+          return;
+        }
+
+        if (totalIndex < 0) return;
+        const description = row[0];
+        const normalizedDescription = clean(description);
+        if (
+          !normalizedDescription ||
+          normalizedDescription.startsWith("BLOCO ") ||
+          normalizedDescription.startsWith("TOTAL") ||
+          normalizedDescription.includes("FATURAMENTO") ||
+          normalizedDescription.includes("PRAZO CONTRATO") ||
+          normalizedDescription.includes("PERCENTUAL")
+        ) return;
+
+        const parsed = makeItem(sheetName, rowIndex + 1, description, 1, 0, row[totalIndex]);
+        if (parsed) items.push(parsed);
+      });
+      continue;
+    }
+
     let block: CapBlock | null = null;
     rows.forEach((row, rowIndex) => {
       const labels = row.map((cell) => clean(cell));
