@@ -1,0 +1,11 @@
+<!-- @dsCard group="Components" viewport="900x110" name="Navbar" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root"></div>
+<script type="text/babel">
+const { Navbar } = window.GrupoLemosPassosDesignSystem_e340d6;
+ReactDOM.createRoot(document.getElementById('root')).render(<Navbar items={["Sobre","Unidades de Negócio","Carreiras","Contato"]} active={1} />);
+</script>

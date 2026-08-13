@@ -1,0 +1,83 @@
+<!-- @dsCard group="Brand Showcase" viewport="1280x760" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root"></div>
+<script type="text/babel">
+const { Navbar, Button, Badge, Card, Alert, Input } = window.GrupoLemosPassosDesignSystem_e340d6;
+
+const services = [
+  { title: 'Restaurantes Corporativos', body: 'Refeições sob medida para o seu time, todos os dias.' },
+  { title: 'Alimentação Escolar', body: 'Merenda escolar nutritiva, segura e pontual.' },
+  { title: 'Alimentação Hospitalar', body: 'Nutrição clínica para pacientes e equipes de saúde.' },
+  { title: 'Administração Prisional', body: 'Serviço de alimentação com rigor e segurança.' },
+  { title: 'Services — Limpeza & Paisagismo', body: 'Conservação, limpeza e paisagismo para grandes operações.' },
+  { title: 'Hotelaria e Alojamentos', body: 'Hospedagem e alojamento para operações contínuas.' },
+];
+
+function App(){
+  const [tab, setTab] = React.useState(0);
+  const [sent, setSent] = React.useState(false);
+  return <div style={{fontFamily:'var(--font-body)', background:'#fff'}}>
+    <Navbar items={["Sobre","Unidades de Negócio","Carreiras","Contato"]} active={tab} />
+    <section style={{background:'var(--brand-primary)', color:'#fff', padding:'80px 64px', position:'relative', overflow:'hidden'}}>
+      <img src="../../assets/logo/elemento-blob-teal-04.png" style={{position:'absolute', right:-60, top:-60, height:320, opacity:0.5}} />
+      <div style={{maxWidth:640, position:'relative'}}>
+        <Badge tone="brand">Desde 1961</Badge>
+        <h1 style={{fontSize:'var(--fs-display-lg)', marginTop:'18px', lineHeight:'var(--lh-tight)'}}>Uma parceira incansável e dedicada aos seus clientes.</h1>
+        <p style={{fontSize:'var(--fs-body-lg)', color:'var(--sky-200)', marginTop:'18px', lineHeight:'var(--lh-relaxed)'}}>Tradição, solidez e inovação em terceirização de alimentação e facilities — entre as 9 maiores do país.</p>
+        <div style={{display:'flex', gap:'14px', marginTop:'32px'}}>
+          <Button variant="secondary" size="lg">Fale conosco</Button>
+          <Button variant="outline" size="lg" inverse onClick={()=>{}} disabled={false}>Conheça o grupo</Button>
+        </div>
+      </div>
+    </section>
+
+    <section style={{padding:'64px', maxWidth:'var(--container-max)', margin:'0 auto'}}>
+      <div style={{fontSize:'var(--fs-caption)', fontWeight:700, letterSpacing:'var(--ls-widest)', textTransform:'uppercase', color:'var(--brand-accent)'}}>Arquitetura de Marca</div>
+      <h2 style={{fontSize:'var(--fs-display-md)', marginTop:'10px', color:'var(--text-body)'}}>Unidades de negócio do Grupo LemosPassos</h2>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'20px', marginTop:'32px'}}>
+        {services.map((s,i)=>(
+          <Card key={i} title={s.title}>{s.body}</Card>
+        ))}
+      </div>
+    </section>
+
+    <section style={{background:'var(--surface-sunken)', padding:'64px'}}>
+      <div style={{maxWidth:'var(--container-max)', margin:'0 auto', display:'grid', gridTemplateColumns:'1.1fr 0.9fr', gap:'48px', alignItems:'start'}}>
+        <div>
+          <h2 style={{fontSize:'var(--fs-title-lg)', color:'var(--text-body)'}}>Nossos valores</h2>
+          <div style={{display:'flex', flexWrap:'wrap', gap:'10px', marginTop:'18px'}}>
+            {['On Demand','Sob Medida','Tradicional','Solidez','Compromisso','Qualidade','Dedicação','Parceria','Agilidade','Movimento'].map((v,i)=>(
+              <Badge key={i} tone={i%3===0?'navy':'brand'}>{v}</Badge>
+            ))}
+          </div>
+          <div style={{marginTop:'28px', display:'flex', flexDirection:'column', gap:'12px'}}>
+            <Alert tone="info" title="Novidade">Novo portal do cliente disponível para consulta de cardápios.</Alert>
+            <Alert tone="success" title="Contrato assinado">Renovação confirmada para o próximo ciclo.</Alert>
+          </div>
+        </div>
+        <Card title="Fale com o time comercial" eyebrow="Contato" elevated
+          footer={<Button variant="primary" onClick={()=>setSent(true)}>{sent ? 'Enviado ✓' : 'Enviar'}</Button>}>
+          <div style={{display:'flex', flexDirection:'column', gap:'14px', marginTop:'6px'}}>
+            <Input label="Nome" placeholder="Seu nome" />
+            <Input label="E-mail corporativo" placeholder="voce@empresa.com" />
+          </div>
+        </Card>
+      </div>
+    </section>
+
+    <footer style={{background:'var(--lp-navy-950)', color:'var(--sky-200)', padding:'40px 64px', display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'var(--fs-body-sm)'}}>
+      <span>© Grupo LemosPassos — desde 1961</span>
+      <div style={{display:'flex', gap:'20px'}}>
+        <a href="#" style={{color:'var(--sky-200)'}}>Privacidade</a>
+        <a href="#" style={{color:'var(--sky-200)'}}>Carreiras</a>
+        <a href="#" style={{color:'var(--sky-200)'}}>Contato</a>
+      </div>
+    </footer>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>

@@ -1,0 +1,6 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);color:var(--text-body);background:var(--surface-page);-webkit-font-smoothing:antialiased}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--text-link-hover);text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:var(--fw-bold);margin:0;letter-spacing:var(--ls-tight)}
+p{margin:0}

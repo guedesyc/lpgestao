@@ -1,0 +1,19 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Alerts" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:20px;display:flex;flex-direction:column;gap:10px"></div>
+<script type="text/babel">
+const { Alert } = window.GrupoLemosPassosDesignSystem_e340d6;
+function Demo(){
+  return <React.Fragment>
+    <Alert tone="info" title="Novidade">Novo portal do cliente disponível para consulta de cardápios.</Alert>
+    <Alert tone="success" title="Contrato assinado">A renovação foi confirmada para o próximo ciclo.</Alert>
+    <Alert tone="warning" title="Ação necessária">Confirme o cardápio da próxima semana até sexta-feira.</Alert>
+    <Alert tone="danger" title="Pendência">Fatura de julho ainda não foi paga.</Alert>
+  </React.Fragment>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>

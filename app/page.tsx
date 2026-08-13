@@ -4,6 +4,18 @@ import { useMemo, useState } from "react";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
 type Status = "Em analise" | "Aguardando setor" | "Em execucao" | "Risco" | "Concluido";
+type Role = Sector | "Comercial";
+
+const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
+  { role: "GEOS", email: "geos@lemospassos.com", scope: "completo" },
+  { role: "Comercial", email: "a definir", scope: "completo" },
+  { role: "Administracao", email: "adm@lemospassos.com", scope: "completo" },
+  { role: "GESU", email: "gesu@lemospassos.com", scope: "GESU" },
+  { role: "RH", email: "rh@lemospassos.com", scope: "RH" },
+  { role: "TI", email: "info@lemospassos.com", scope: "TI" },
+  { role: "Manutencao", email: "manutencao@lemospassos.com", scope: "Manutencao" },
+  { role: "PCP", email: "a definir", scope: "PCP" },
+];
 
 const sectors: Array<{ id: Sector; label: string; scope: string }> = [
   { id: "GEOS", label: "GEOS / GO / GEU", scope: "Validacao tecnica e plano operacional" },
@@ -98,7 +110,7 @@ const tasks: Array<{
   },
 ];
 
-const capItems = [
+const capItems: Array<{ item: string; sector: Sector; cap: string; decision: string; state: string }> = [
   { item: "Computadores PDV", sector: "TI", cap: "R$ 18.400", decision: "Confirmar compra", state: "Risco" },
   { item: "Freezer vertical", sector: "GESU", cap: "R$ 12.900", decision: "Substituir por similar", state: "Excecao" },
   { item: "Adequacao eletrica", sector: "Manutencao", cap: "R$ 22.000", decision: "Executar", state: "OK" },
@@ -119,20 +131,28 @@ function statusLabel(status: Status) {
 
 export default function Home() {
   const [activeSector, setActiveSector] = useState<Sector | "Todos">("Todos");
+  const [role, setRole] = useState<Role>("GEOS");
+  const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
+  const [imported, setImported] = useState(false);
+
+  const profile = profiles.find((item) => item.role === role) ?? profiles[0];
+  const canSee = (sector: Sector) => profile.scope === "completo" || profile.scope === sector;
 
   const visibleTasks = useMemo(
-    () => tasks.filter((task) => activeSector === "Todos" || task.sector === activeSector),
-    [activeSector],
+    () => tasks.filter((task) => canSee(task.sector) && (activeSector === "Todos" || task.sector === activeSector)),
+    [activeSector, profile.scope],
   );
 
+  const visibleCapItems = capItems.filter((item) => canSee(item.sector));
+
   const riskCount = tasks.filter((task) => task.status === "Risco" || task.risk === "alto").length;
-  const doneCount = tasks.filter((task) => task.status === "Concluido").length;
+  const doneCount = visibleTasks.filter((task) => task.status === "Concluido").length;
 
   return (
     <main className="shell">
       <aside className="sidebar" aria-label="Navegacao do prototipo">
         <div className="brand">
-          <span>LP</span>
+          <img src="/brand/logo-lemospassos-badge.png" alt="Grupo LemosPassos" />
           <div>
             <strong>LP Gestao</strong>
             <small>Implantacao pos-CAP</small>
@@ -149,6 +169,13 @@ export default function Home() {
           <strong>25/09/2026</strong>
           <span>{riskCount} pontos exigem atencao</span>
         </div>
+        <label className="profile-switcher">
+          <small>Perfil de demonstracao</small>
+          <select value={role} onChange={(event) => { setRole(event.target.value as Role); setActiveSector("Todos"); }}>
+            {profiles.map((item) => <option key={item.role} value={item.role}>{item.role}</option>)}
+          </select>
+          <span>{profile.email} · {profile.scope === "completo" ? "visao completa" : `somente ${profile.scope}`}</span>
+        </label>
       </aside>
 
       <section className="workspace">
@@ -157,11 +184,11 @@ export default function Home() {
             <p className="eyebrow">Unidade em implantacao</p>
             <h1>Cozinha Central Lisboa</h1>
             <p>
-              Controle unico para transformar a CAP aprovada em tarefas, aprovacoes,
-              compras e riscos por setor.
+              Acompanhamento pos-CAP com responsabilidade clara, evidencias e
+              riscos visiveis ate a inauguracao.
             </p>
           </div>
-          <button type="button">Nova tarefa</button>
+          <button type="button" onClick={() => setImported((value) => !value)}>{imported ? "CAP importada" : "Importar CAP XLSM"}</button>
         </header>
 
         <section className="metrics" aria-label="Indicadores do projeto">
@@ -177,8 +204,8 @@ export default function Home() {
           </article>
           <article>
             <small>Tarefas concluidas</small>
-            <strong>{doneCount}/{tasks.length}</strong>
-            <span>controle por evidencias</span>
+            <strong>{doneCount}/{visibleTasks.length}</strong>
+            <span>{evidenceIds.length} evidencias registradas</span>
           </article>
           <article>
             <small>Risco atual</small>
@@ -215,7 +242,7 @@ export default function Home() {
           </div>
 
           <div className="sector-grid">
-            {sectors.map((sector) => (
+            {sectors.filter((sector) => canSee(sector.id)).map((sector) => (
               <article key={sector.id} className={activeSector === sector.id ? "sector selected" : "sector"}>
                 <strong>{sector.label}</strong>
                 <small>{sector.scope}</small>
@@ -238,7 +265,12 @@ export default function Home() {
                     </div>
                     <strong>{task.title}</strong>
                     <p>{task.note}</p>
-                    <small>{statusLabel(task.status)}</small>
+                    <small>{evidenceIds.includes(task.id) ? "Evidencia registrada" : "Evidencia pendente"}</small>
+                    {task.status !== "Concluido" && (
+                      <button className="evidence-button" type="button" onClick={() => setEvidenceIds((ids) => ids.includes(task.id) ? ids : [...ids, task.id])}>
+                        Registrar evidencia
+                      </button>
+                    )}
                   </div>
                 ))}
             </article>
@@ -255,7 +287,7 @@ export default function Home() {
               <span className="badge">base unica</span>
             </div>
             <div className="cap-list">
-              {capItems.map((item) => (
+              {visibleCapItems.map((item) => (
                 <div className="cap-row" key={item.item}>
                   <span>{item.sector}</span>
                   <strong>{item.item}</strong>
@@ -265,6 +297,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            <p className="panel-footnote">{imported ? "CAP XLSM importada: abas reconhecidas e itens prontos para validacao GEOS." : "Nenhum arquivo enviado nesta demonstracao. O parser do MVP aceitara somente o padrao CAP Lemos Passos."}</p>
           </article>
 
           <article className="panel" id="regras">

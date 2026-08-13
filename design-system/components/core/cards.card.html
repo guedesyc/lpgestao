@@ -1,0 +1,31 @@
+<!-- @dsCard group="Components" viewport="700x220" name="Badges & Cards" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root" style="padding:20px;background:var(--surface-sunken)"></div>
+<script type="text/babel">
+const { Badge, Card, Button } = window.GrupoLemosPassosDesignSystem_e340d6;
+function Demo(){
+  return <div>
+    <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
+      <Badge tone="brand">On Demand</Badge>
+      <Badge tone="navy">Tradicional</Badge>
+      <Badge tone="neutral">Sob Medida</Badge>
+      <Badge tone="success">Ativo</Badge>
+      <Badge tone="warning">Pendente</Badge>
+      <Badge tone="danger">Urgente</Badge>
+    </div>
+    <div style={{display:'flex',gap:'16px',maxWidth:640}}>
+      <Card eyebrow="Serviço" title="Restaurantes Corporativos" footer={<Button variant="ghost" size="sm">Saiba mais</Button>}>
+        Refeições sob medida para o seu time, todos os dias.
+      </Card>
+      <Card eyebrow="Serviço" title="Alimentação Hospitalar" elevated footer={<Button variant="ghost" size="sm">Saiba mais</Button>}>
+        Nutrição e segurança alimentar para pacientes e equipes.
+      </Card>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
