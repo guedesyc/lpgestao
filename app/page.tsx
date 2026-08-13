@@ -166,7 +166,7 @@ function detectBlock(labels: string[]): CapBlock | null {
   const quantityIndex = labels.findIndex(isQuantityHeader);
   const unitIndex = labels.findIndex(isUnitHeader);
   const totalIndex = labels.findIndex(isTotalHeader);
-  if (unitIndex < 0 || totalIndex < 0) return null;
+  if (quantityIndex < 0 || unitIndex < 0 || totalIndex < 0) return null;
 
   const descriptionIndex = labels.findIndex((label, index) => {
     if (!isDescriptionHeader(label)) return false;
@@ -183,16 +183,16 @@ function sectorForSheet(sheetName: string): Sector | null {
   if (name === "MAO DE OBRA") return "RH";
   if (["EQUIPAMENTOS", "UTENSILIOS"].includes(name)) return "GESU";
   if (name === "MARKETING") return "RH";
-  if (name === "DESPESAS OPERACIONAIS") return "Administracao";
   return null;
 }
 
 function makeItem(sheetName: string, rowNumber: number, description: unknown, quantity: unknown, unitPrice: unknown, total: unknown): CapItem | null {
   const item = String(description ?? "").trim();
   const qty = numberValue(quantity);
+  const hasQuantity = typeof quantity === "number" ? quantity > 0 : String(quantity ?? "").trim().length > 0;
   const unit = numberValue(unitPrice);
   const amount = numberValue(total) || qty * unit;
-  if (!item || numberValue(item) || clean(item).startsWith("TOTAL") || (!qty && !amount)) return null;
+  if (!item || !hasQuantity || numberValue(item) || clean(item).startsWith("TOTAL")) return null;
   return {
     id: `${clean(sheetName).toLowerCase()}-${rowNumber}-${clean(item).slice(0, 24)}`,
     item,
@@ -223,40 +223,14 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
         const descriptionIndex = header.findIndex((cell) => clean(cell).includes("QUADRO DE PESSOAL"));
         const unitIndex = header.findIndex((cell) => clean(cell) === "SALARIO");
         const totalIndex = header.findIndex((cell) => clean(cell).startsWith("TOTAL GERAL"));
-        rows.slice(headerIndex + 1).forEach((row, index) => {
-          const parsed = makeItem(sheetName, headerIndex + index + 2, row[descriptionIndex], row[qtyIndex], row[unitIndex], row[totalIndex]);
+        for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex += 1) {
+          const row = rows[rowIndex];
+          const description = row[descriptionIndex];
+          if (clean(description).startsWith("TOTAL")) break;
+          const parsed = makeItem(sheetName, rowIndex + 1, description, row[qtyIndex], row[unitIndex], row[totalIndex]);
           if (parsed) items.push(parsed);
-        });
-      }
-      continue;
-    }
-
-    if (sheet === "DESPESAS OPERACIONAIS") {
-      let totalIndex = -1;
-      rows.forEach((row, rowIndex) => {
-        const labels = row.map((cell) => clean(cell));
-        const detectedTotalIndex = labels.findIndex(isTotalHeader);
-        const startsBlock = labels.some((label) => label.startsWith("BLOCO "));
-        if (startsBlock && detectedTotalIndex >= 0) {
-          totalIndex = detectedTotalIndex;
-          return;
         }
-
-        if (totalIndex < 0) return;
-        const description = row[0];
-        const normalizedDescription = clean(description);
-        if (
-          !normalizedDescription ||
-          normalizedDescription.startsWith("BLOCO ") ||
-          normalizedDescription.startsWith("TOTAL") ||
-          normalizedDescription.includes("FATURAMENTO") ||
-          normalizedDescription.includes("PRAZO CONTRATO") ||
-          normalizedDescription.includes("PERCENTUAL")
-        ) return;
-
-        const parsed = makeItem(sheetName, rowIndex + 1, description, 1, 0, row[totalIndex]);
-        if (parsed) items.push(parsed);
-      });
+      }
       continue;
     }
 
@@ -523,7 +497,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <p className="panel-footnote">{imported ? `CAP importada: ${importedFileName}. Abas reconhecidas: Informática, Mão de obra, Equipamentos, Utensílios, Marketing e Despesas Operacionais.` : "Nenhum arquivo enviado. O importador aceita o padrão CAP Lemos Passos em XLSM/XLSX."}</p>
+            <p className="panel-footnote">{imported ? `CAP importada: ${importedFileName}. Abas reconhecidas: Informática, Mão de obra, Equipamentos, Utensílios e Marketing.` : "Nenhum arquivo enviado. O importador aceita o padrão CAP Lemos Passos em XLSM/XLSX."}</p>
             {importError && <p className="import-error" role="alert">{importError}</p>}
           </article>
 
