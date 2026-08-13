@@ -230,6 +230,24 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
   return items.filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index);
 }
 
+function extractUnitName(data: ArrayBuffer) {
+  const workbook = XLSX.read(data, { type: "array", cellDates: true, cellFormula: false });
+  const sheet = workbook.Sheets[workbook.SheetNames.find((name) => clean(name) === "INFORMACOES INICIAIS") ?? ""];
+  if (!sheet) return "";
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
+  for (const row of rows) {
+    const labelIndex = row.findIndex((cell) => clean(cell) === "NOME FANTASIA");
+    if (labelIndex >= 0 && row[labelIndex + 1]) {
+      const fantasyName = String(row[labelIndex + 1]).trim();
+      if (clean(fantasyName).includes("RBEM") || clean(fantasyName).includes("RESTAURANTE DO BEM")) {
+        return "Restaurante do Bem Quirinópolis";
+      }
+      return fantasyName;
+    }
+  }
+  return "";
+}
+
 export default function Home() {
   const [activeSector, setActiveSector] = useState<Sector | "Todos">("Todos");
   const [role, setRole] = useState<Role>("GEOS");
@@ -238,6 +256,7 @@ export default function Home() {
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
   const [importedFileName, setImportedFileName] = useState("");
   const [importError, setImportError] = useState("");
+  const [unitName, setUnitName] = useState("Cozinha Central Lisboa");
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
@@ -251,7 +270,8 @@ export default function Home() {
   );
 
   const capItems = importedCapItems.length ? importedCapItems : fallbackCapItems;
-  const visibleCapItems = capItems.filter((item) => canSee(item.sector));
+  const capSector = profile.scope === "completo" && activeSector !== "Todos" ? activeSector : profile.scope;
+  const visibleCapItems = capItems.filter((item) => capSector === "completo" || item.sector === capSector);
   const importedTotal = capItems.reduce((sum, item) => sum + item.total, 0);
 
   async function importCap(file: File) {
@@ -261,6 +281,8 @@ export default function Home() {
       if (!parsedItems.length) throw new Error("Nenhum item previsto foi encontrado nas abas conhecidas.");
       setImportedCapItems(parsedItems);
       setImportedFileName(file.name);
+      const detectedUnitName = extractUnitName(await file.arrayBuffer());
+      if (detectedUnitName) setUnitName(detectedUnitName);
       setImported(true);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Não foi possível ler esta CAP.");
@@ -311,7 +333,7 @@ export default function Home() {
         <header className="topline" id="painel">
           <div>
             <p className="eyebrow">Unidade em implantacao</p>
-            <h1>Cozinha Central Lisboa</h1>
+            <input className="unit-name-input" aria-label="Nome da unidade" value={unitName} onChange={(event) => setUnitName(event.target.value)} />
             <p>
               Acompanhamento pos-CAP com responsabilidade clara, evidencias e
               riscos visiveis ate a inauguracao.

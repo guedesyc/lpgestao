@@ -592,6 +592,30 @@ body {
   letter-spacing: var(--ls-tight);
 }
 
+.unit-name-input {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--lp-navy-950);
+  display: block;
+  font-family: "Quicksand Local", var(--font-display), sans-serif;
+  font-size: clamp(2.25rem, 4vw, 3.8rem);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
+  line-height: 1.1;
+  margin: 4px 0 10px;
+  max-width: 100%;
+  outline: 0;
+  padding: 0;
+  width: min(100%, 900px);
+}
+
+.unit-name-input:hover,
+.unit-name-input:focus {
+  border-bottom-color: var(--brand-secondary);
+}
+
 .eyebrow {
   color: var(--brand-accent);
   letter-spacing: var(--ls-widest);
