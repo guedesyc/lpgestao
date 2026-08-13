@@ -148,7 +148,8 @@ function sectorForSheet(sheetName: string): Sector | null {
   const name = clean(sheetName);
   if (name === "INFORMATICA") return "TI";
   if (name === "MAO DE OBRA") return "RH";
-  if (["EQUIPAMENTOS", "UTENSILIOS", "MARKETING"].includes(name)) return "GESU";
+  if (["EQUIPAMENTOS", "UTENSILIOS"].includes(name)) return "GESU";
+  if (name === "MARKETING") return "RH";
   if (name === "DESPESAS OPERACIONAIS") return "Administracao";
   return null;
 }
