@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
 type Status = "Em analise" | "Aguardando setor" | "Em execucao" | "Risco" | "Concluido";
 type Role = Sector | "Comercial";
+type CapItem = { id: string; item: string; sector: Sector; cap: string; decision: string; state: string; quantity: number; unitPrice: number; total: number; source: string };
 
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
   { role: "GEOS", email: "geos@lemospassos.com", scope: "completo" },
@@ -110,12 +112,12 @@ const initialTasks: Array<{
   },
 ];
 
-const capItems: Array<{ item: string; sector: Sector; cap: string; decision: string; state: string }> = [
-  { item: "Computadores PDV", sector: "TI", cap: "R$ 18.400", decision: "Confirmar compra", state: "Risco" },
-  { item: "Freezer vertical", sector: "GESU", cap: "R$ 12.900", decision: "Substituir por similar", state: "Excecao" },
-  { item: "Adequacao eletrica", sector: "Manutencao", cap: "R$ 22.000", decision: "Executar", state: "OK" },
-  { item: "Equipe inicial", sector: "RH", cap: "14 vagas", decision: "Aprovar quadro", state: "Pendente" },
-  { item: "Primeiro abastecimento", sector: "PCP", cap: "R$ 31.600", decision: "Aguardando filial", state: "Pendente" },
+const fallbackCapItems: CapItem[] = [
+  { id: "fallback-ti", item: "Computadores PDV", sector: "TI", cap: "R$ 18.400", decision: "Confirmar compra", state: "Risco", quantity: 1, unitPrice: 18400, total: 18400, source: "Demonstração" },
+  { id: "fallback-gesu", item: "Freezer vertical", sector: "GESU", cap: "R$ 12.900", decision: "Substituir por similar", state: "Excecao", quantity: 1, unitPrice: 12900, total: 12900, source: "Demonstração" },
+  { id: "fallback-manutencao", item: "Adequacao eletrica", sector: "Manutencao", cap: "R$ 22.000", decision: "Executar", state: "OK", quantity: 1, unitPrice: 22000, total: 22000, source: "Demonstração" },
+  { id: "fallback-rh", item: "Equipe inicial", sector: "RH", cap: "14 vagas", decision: "Aprovar quadro", state: "Pendente", quantity: 14, unitPrice: 0, total: 0, source: "Demonstração" },
+  { id: "fallback-pcp", item: "Primeiro abastecimento", sector: "PCP", cap: "R$ 31.600", decision: "Aguardando filial", state: "Pendente", quantity: 1, unitPrice: 31600, total: 31600, source: "Demonstração" },
 ];
 
 const approvals = [
@@ -131,11 +133,93 @@ function statusLabel(status: Status) {
   return status;
 }
 
+function clean(value: unknown) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+}
+
+function numberValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = String(value ?? "").replace(/R\$\s?/gi, "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sectorForSheet(sheetName: string): Sector | null {
+  const name = clean(sheetName);
+  if (name === "INFORMATICA") return "TI";
+  if (name === "MAO DE OBRA") return "RH";
+  if (["EQUIPAMENTOS", "UTENSILIOS", "MARKETING"].includes(name)) return "GESU";
+  if (name === "DESPESAS OPERACIONAIS") return "Administracao";
+  return null;
+}
+
+function makeItem(sheetName: string, rowNumber: number, description: unknown, quantity: unknown, unitPrice: unknown, total: unknown): CapItem | null {
+  const item = String(description ?? "").trim();
+  const qty = numberValue(quantity);
+  const unit = numberValue(unitPrice);
+  const amount = numberValue(total) || qty * unit;
+  if (!item || clean(item).startsWith("TOTAL") || (!qty && !amount)) return null;
+  return {
+    id: `${clean(sheetName).toLowerCase()}-${rowNumber}-${clean(item).slice(0, 24)}`,
+    item,
+    sector: sectorForSheet(sheetName) ?? "GESU",
+    cap: amount ? `R$ ${amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${qty} un.`,
+    decision: "Aguardando validação GEOS",
+    state: "Pendente",
+    quantity: qty || 1,
+    unitPrice: unit,
+    total: amount,
+    source: sheetName,
+  };
+}
+
+function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
+  const workbook = XLSX.read(data, { type: "array", cellDates: true, cellFormula: false });
+  const items: CapItem[] = [];
+  const supportedSheets = workbook.SheetNames.filter((sheetName) => sectorForSheet(sheetName));
+
+  for (const sheetName of supportedSheets) {
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: null, raw: true });
+    const sheet = clean(sheetName);
+    if (sheet === "MAO DE OBRA") {
+      const headerIndex = rows.findIndex((row) => row.some((cell) => clean(cell).includes("QUADRO DE PESSOAL")));
+      if (headerIndex >= 0) {
+        const header = rows[headerIndex];
+        const qtyIndex = header.findIndex((cell) => clean(cell) === "QTD");
+        const descriptionIndex = header.findIndex((cell) => clean(cell).includes("QUADRO DE PESSOAL"));
+        const unitIndex = header.findIndex((cell) => clean(cell) === "SALARIO");
+        const totalIndex = header.findIndex((cell) => clean(cell).startsWith("TOTAL GERAL"));
+        rows.slice(headerIndex + 1).forEach((row, index) => {
+          const parsed = makeItem(sheetName, headerIndex + index + 2, row[descriptionIndex], row[qtyIndex], row[unitIndex], row[totalIndex]);
+          if (parsed) items.push(parsed);
+        });
+      }
+      continue;
+    }
+
+    rows.forEach((row, rowIndex) => {
+      const header = row.map((cell) => clean(cell));
+      const qtyIndex = header.findIndex((cell) => cell === "QTD" || cell === "QTD." || cell.includes("QUANTIDADE"));
+      const unitIndex = header.findIndex((cell) => cell.includes("VALOR UNIT") || cell.includes("PRECO UNIT"));
+      const totalIndex = header.findIndex((cell) => cell.startsWith("TOTAL"));
+      const descriptionIndex = qtyIndex >= 0 && unitIndex >= 0 && qtyIndex < unitIndex ? unitIndex - 1 : unitIndex >= 0 ? unitIndex - 1 : qtyIndex > 0 ? qtyIndex - 1 : -1;
+      if (qtyIndex < 0 || descriptionIndex < 0 || totalIndex < 0) return;
+      const parsed = makeItem(sheetName, rowIndex + 1, row[descriptionIndex], row[qtyIndex], unitIndex >= 0 ? row[unitIndex] : row[totalIndex], row[totalIndex]);
+      if (parsed) items.push(parsed);
+    });
+  }
+
+  return items.filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index);
+}
+
 export default function Home() {
   const [activeSector, setActiveSector] = useState<Sector | "Todos">("Todos");
   const [role, setRole] = useState<Role>("GEOS");
   const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
   const [imported, setImported] = useState(false);
+  const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
+  const [importedFileName, setImportedFileName] = useState("");
+  const [importError, setImportError] = useState("");
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
@@ -148,7 +232,23 @@ export default function Home() {
     [activeSector, profile.scope, tasks],
   );
 
+  const capItems = importedCapItems.length ? importedCapItems : fallbackCapItems;
   const visibleCapItems = capItems.filter((item) => canSee(item.sector));
+  const importedTotal = capItems.reduce((sum, item) => sum + item.total, 0);
+
+  async function importCap(file: File) {
+    setImportError("");
+    try {
+      const parsedItems = parseCapWorkbook(await file.arrayBuffer());
+      if (!parsedItems.length) throw new Error("Nenhum item previsto foi encontrado nas abas conhecidas.");
+      setImportedCapItems(parsedItems);
+      setImportedFileName(file.name);
+      setImported(true);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Não foi possível ler esta CAP.");
+      setImported(false);
+    }
+  }
 
   const riskCount = tasks.filter((task) => task.status === "Risco" || task.risk === "alto").length;
   const doneCount = visibleTasks.filter((task) => task.status === "Concluido").length;
@@ -199,14 +299,17 @@ export default function Home() {
               riscos visiveis ate a inauguracao.
             </p>
           </div>
-          <button type="button" onClick={() => setImported((value) => !value)}>{imported ? "CAP importada" : "Importar CAP XLSM"}</button>
+          <label className="upload-button">
+            <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
+            {imported ? "Trocar CAP" : "Importar CAP XLSM"}
+          </label>
         </header>
 
         <section className="metrics" aria-label="Indicadores do projeto">
           <article>
             <small>CAP base</small>
-            <strong>R$ 284.700</strong>
-            <span>versao unica bloqueada</span>
+            <strong>{imported ? `R$ ${importedTotal.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : "R$ 284.700"}</strong>
+            <span>{imported ? `${capItems.length} itens importados` : "versao unica bloqueada"}</span>
           </article>
           <article>
             <small>Prazo ate inauguracao</small>
@@ -306,22 +409,23 @@ export default function Home() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">CAP setorizada</p>
-                <h2>Itens visiveis por perfil</h2>
+              <h2>Itens visiveis para {profile.role}</h2>
               </div>
-              <span className="badge">base unica</span>
+              <span className="badge">{visibleCapItems.length} itens · base unica</span>
             </div>
             <div className="cap-list">
               {visibleCapItems.map((item) => (
                 <div className="cap-row" key={item.item}>
                   <span>{item.sector}</span>
                   <strong>{item.item}</strong>
-                  <small>{item.cap}</small>
+                  <small>{item.quantity} un. · R$ {item.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</small>
                   <em>{item.decision}</em>
-                  <b>{item.state}</b>
+                  <b>R$ {item.total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                 </div>
               ))}
             </div>
-            <p className="panel-footnote">{imported ? "CAP XLSM importada: abas reconhecidas e itens prontos para validacao GEOS." : "Nenhum arquivo enviado nesta demonstracao. O parser do MVP aceitara somente o padrao CAP Lemos Passos."}</p>
+            <p className="panel-footnote">{imported ? `CAP importada: ${importedFileName}. Abas reconhecidas: Informática, Mão de obra, Equipamentos, Utensílios, Marketing e Despesas Operacionais.` : "Nenhum arquivo enviado. O importador aceita o padrão CAP Lemos Passos em XLSM/XLSX."}</p>
+            {importError && <p className="import-error" role="alert">{importError}</p>}
           </article>
 
           <article className="panel" id="regras">
