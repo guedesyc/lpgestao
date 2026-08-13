@@ -145,7 +145,7 @@ export default function Home() {
 
   const visibleTasks = useMemo(
     () => tasks.filter((task) => canSee(task.sector) && (activeSector === "Todos" || task.sector === activeSector)),
-    [activeSector, profile.scope],
+    [activeSector, profile.scope, tasks],
   );
 
   const visibleCapItems = capItems.filter((item) => canSee(item.sector));
