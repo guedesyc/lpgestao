@@ -198,14 +198,31 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
       continue;
     }
 
+    let block: { quantityIndex: number; descriptionIndex: number; unitIndex: number; totalIndex: number } | null = null;
     rows.forEach((row, rowIndex) => {
-      const header = row.map((cell) => clean(cell));
-      const qtyIndex = header.findIndex((cell) => cell === "QTD" || cell === "QTD." || cell.includes("QUANTIDADE"));
-      const unitIndex = header.findIndex((cell) => cell.includes("VALOR UNIT") || cell.includes("PRECO UNIT"));
-      const totalIndex = header.findIndex((cell) => cell.startsWith("TOTAL"));
-      const descriptionIndex = qtyIndex >= 0 && unitIndex >= 0 && qtyIndex < unitIndex ? unitIndex - 1 : unitIndex >= 0 ? unitIndex - 1 : qtyIndex > 0 ? qtyIndex - 1 : -1;
-      if (qtyIndex < 0 || descriptionIndex < 0 || totalIndex < 0) return;
-      const parsed = makeItem(sheetName, rowIndex + 1, row[descriptionIndex], row[qtyIndex], unitIndex >= 0 ? row[unitIndex] : row[totalIndex], row[totalIndex]);
+      const labels = row.map((cell) => clean(cell));
+      const quantityIndex = labels.findIndex((cell) => cell === "QTD" || cell === "QTD." || cell.includes("QUANTIDADE"));
+      const unitIndex = labels.findIndex((cell) => cell.includes("VALOR UNIT") || cell.includes("PRECO UNIT") || cell.includes("CUSTO TOTAL"));
+      const totalIndex = labels.findIndex((cell) => cell === "TOTAL" || cell.startsWith("TOTAL ") || cell.includes("TOTAL R"));
+
+      // Each operational tab is made of repeated blocks. Once a block header
+      // is found, its column layout applies to the following item rows.
+      if (quantityIndex >= 0 && unitIndex >= 0 && totalIndex >= 0) {
+        block = {
+          quantityIndex,
+          descriptionIndex: quantityIndex < unitIndex ? unitIndex - 1 : quantityIndex - 1,
+          unitIndex,
+          totalIndex,
+        };
+        return;
+      }
+
+      if (!block) return;
+      const description = row[block.descriptionIndex];
+      const normalizedDescription = clean(description);
+      if (!normalizedDescription || normalizedDescription.startsWith("TOTAL") || normalizedDescription.includes("TAXA") || normalizedDescription.includes("NUMERO DE PARCELAS")) return;
+
+      const parsed = makeItem(sheetName, rowIndex + 1, description, row[block.quantityIndex], row[block.unitIndex], row[block.totalIndex]);
       if (parsed) items.push(parsed);
     });
   }
