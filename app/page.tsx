@@ -27,7 +27,7 @@ const sectors: Array<{ id: Sector; label: string; scope: string }> = [
   { id: "Manutencao", label: "Manutencao", scope: "Estrutura, eletrica e ponto zero" },
 ];
 
-const tasks: Array<{
+const initialTasks: Array<{
   id: number;
   title: string;
   sector: Sector;
@@ -125,6 +125,8 @@ const approvals = [
   "Perfil de setor ve apenas sua fatia da CAP.",
 ];
 
+const boardStatuses: Status[] = ["Em analise", "Aguardando setor", "Em execucao", "Risco", "Concluido"];
+
 function statusLabel(status: Status) {
   return status;
 }
@@ -134,6 +136,9 @@ export default function Home() {
   const [role, setRole] = useState<Role>("GEOS");
   const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
   const [imported, setImported] = useState(false);
+  const [tasks, setTasks] = useState(initialTasks);
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   const canSee = (sector: Sector) => profile.scope === "completo" || profile.scope === sector;
@@ -147,6 +152,12 @@ export default function Home() {
 
   const riskCount = tasks.filter((task) => task.status === "Risco" || task.risk === "alto").length;
   const doneCount = visibleTasks.filter((task) => task.status === "Concluido").length;
+
+  function moveTask(taskId: number, status: Status) {
+    setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, status } : task));
+    setDraggedTaskId(null);
+    setDragOverStatus(null);
+  }
 
   return (
     <main className="shell">
@@ -252,13 +263,26 @@ export default function Home() {
         </section>
 
         <section className="board" aria-label="Quadro de tarefas">
-          {["Em analise", "Aguardando setor", "Em execucao", "Risco", "Concluido"].map((status) => (
-            <article className="column" key={status}>
+          {boardStatuses.map((status) => (
+            <article
+              className={dragOverStatus === status ? "column drag-over" : "column"}
+              key={status}
+              onDragOver={(event) => { event.preventDefault(); setDragOverStatus(status); }}
+              onDragLeave={() => setDragOverStatus((current) => current === status ? null : current)}
+              onDrop={(event) => { event.preventDefault(); const taskId = Number(event.dataTransfer.getData("text/plain")); if (taskId) moveTask(taskId, status); }}
+            >
               <h3>{status}</h3>
+              <small className="drop-hint">{dragOverStatus === status ? "Solte para mover" : "Arraste tarefas para cá"}</small>
               {visibleTasks
                 .filter((task) => task.status === status)
                 .map((task) => (
-                  <div className={`task risk-${task.risk}`} key={task.id}>
+                  <div
+                    className={draggedTaskId === task.id ? `task risk-${task.risk} is-dragging` : `task risk-${task.risk}`}
+                    draggable
+                    key={task.id}
+                    onDragStart={(event) => { event.dataTransfer.setData("text/plain", String(task.id)); event.dataTransfer.effectAllowed = "move"; setDraggedTaskId(task.id); }}
+                    onDragEnd={() => { setDraggedTaskId(null); setDragOverStatus(null); }}
+                  >
                     <div>
                       <span>{task.sector}</span>
                       <b>{task.due}</b>
