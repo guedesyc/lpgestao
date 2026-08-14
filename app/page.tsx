@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
@@ -299,6 +299,13 @@ export default function Home() {
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
+  const [profileFilterReady, setProfileFilterReady] = useState(false);
+
+  // Avoid a native select change before React finishes activating the page.
+  // Without this guard, the label can say RH while the CAP still has GEOS state.
+  useEffect(() => {
+    setProfileFilterReady(true);
+  }, []);
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   // GEOS e Comercial são os únicos perfis com visão completa. Os demais só
@@ -370,7 +377,15 @@ export default function Home() {
         </div>
         <label className="profile-switcher">
           <small>Perfil de demonstracao</small>
-          <select value={role} onChange={(event) => { setRole(event.target.value as Role); setActiveSector("Todos"); }}>
+          <select
+            aria-label="Perfil de demonstracao"
+            disabled={!profileFilterReady}
+            value={role}
+            onChange={(event) => {
+              setRole(event.target.value as Role);
+              setActiveSector("Todos");
+            }}
+          >
             {profiles.map((item) => <option key={item.role} value={item.role}>{item.role}</option>)}
           </select>
           <span>{profile.email} · {profile.scope === "completo" ? "visao completa" : `somente ${profile.scope}`}</span>
