@@ -12,7 +12,7 @@ type CapBlock = { quantityIndex: number; descriptionIndex: number; unitIndex: nu
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
   { role: "GEOS", email: "geos@lemospassos.com", scope: "completo" },
   { role: "Comercial", email: "a definir", scope: "completo" },
-  { role: "Administracao", email: "adm@lemospassos.com", scope: "completo" },
+  { role: "Administracao", email: "adm@lemospassos.com", scope: "Administracao" },
   { role: "GESU", email: "gesu@lemospassos.com", scope: "GESU" },
   { role: "RH", email: "rh@lemospassos.com", scope: "RH" },
   { role: "TI", email: "info@lemospassos.com", scope: "TI" },
@@ -192,7 +192,9 @@ function makeItem(sheetName: string, rowNumber: number, description: unknown, qu
   const hasQuantity = typeof quantity === "number" ? quantity > 0 : String(quantity ?? "").trim().length > 0;
   const unit = numberValue(unitPrice);
   const amount = numberValue(total) || qty * unit;
-  if (!item || !hasQuantity || numberValue(item) || clean(item).startsWith("TOTAL")) return null;
+  // A quantidade pode estar preenchida, mas somente itens orçados entram na
+  // CAP setorizada. Linhas de catálogo com total zero não são compras previstas.
+  if (!item || !hasQuantity || amount <= 0 || numberValue(item) || clean(item).startsWith("TOTAL")) return null;
   return {
     id: `${clean(sheetName).toLowerCase()}-${rowNumber}-${clean(item).slice(0, 24)}`,
     item,
@@ -234,8 +236,16 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
       continue;
     }
 
+    // A primeira parte de Marketing é o orçamento selecionado. Depois do total
+    // geral, a planilha contém tabelas de composição por faixa de refeições;
+    // elas servem de referência e não devem virar itens da implantação.
+    const marketingEnd = sheet === "MARKETING"
+      ? rows.findIndex((row) => row.some((cell) => clean(cell).startsWith("TOTAL GERAL MARKETING")))
+      : -1;
+    const rowsToImport = marketingEnd >= 0 ? rows.slice(0, marketingEnd + 1) : rows;
+
     let block: CapBlock | null = null;
-    rows.forEach((row, rowIndex) => {
+    rowsToImport.forEach((row, rowIndex) => {
       const labels = row.map((cell) => clean(cell));
       const detectedBlock = detectBlock(labels);
 
@@ -291,8 +301,9 @@ export default function Home() {
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
+  // GEOS e Comercial são os únicos perfis com visão completa. Os demais só
+  // passam pela barreira quando o setor do item é exatamente o seu setor.
   const canSee = (sector: Sector) => profile.scope === "completo" || profile.scope === sector;
-  const allowedSectors = sectors.filter((sector) => canSee(sector.id)).map((sector) => sector.id);
 
   const visibleTasks = useMemo(
     () => tasks.filter((task) => canSee(task.sector) && (activeSector === "Todos" || task.sector === activeSector)),
@@ -301,7 +312,7 @@ export default function Home() {
 
   const capItems = importedCapItems.length ? importedCapItems : fallbackCapItems;
   const visibleCapItems = capItems.filter((item) => {
-    const profileAllowsItem = allowedSectors.includes(item.sector);
+    const profileAllowsItem = canSee(item.sector);
     const activeSectorAllowsItem = activeSector === "Todos" || item.sector === activeSector;
     return profileAllowsItem && activeSectorAllowsItem;
   });
