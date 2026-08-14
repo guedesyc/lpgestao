@@ -311,8 +311,12 @@ export default function Home() {
   );
 
   const capItems = importedCapItems.length ? importedCapItems : fallbackCapItems;
+  const hasFullCapAccess = role === "GEOS" || role === "Comercial";
   const visibleCapItems = capItems.filter((item) => {
-    const profileAllowsItem = canSee(item.sector);
+    // This is deliberately keyed to the selected profile (not only to the
+    // descriptive profile scope): a sector profile can never receive an item
+    // tagged with another sector. GEOS and Comercial are the sole exceptions.
+    const profileAllowsItem = hasFullCapAccess || item.sector === role;
     const activeSectorAllowsItem = activeSector === "Todos" || item.sector === activeSector;
     return profileAllowsItem && activeSectorAllowsItem;
   });
