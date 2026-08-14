@@ -518,7 +518,7 @@ export default function Home() {
             </div>
             <div className="cap-list">
               {visibleCapItems.map((item) => (
-                <div className="cap-row" key={item.item}>
+                <div className="cap-row" key={item.id}>
                   <span>{item.sector}</span>
                   <strong>{item.item}</strong>
                   <small>{item.quantity} un. · R$ {item.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</small>
