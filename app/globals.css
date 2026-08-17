@@ -424,6 +424,241 @@ a {
   padding: 10px 12px;
 }
 
+.auth-shell {
+  align-items: center;
+  background: linear-gradient(135deg, #eef4f8, #dbe9e8);
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+
+.auth-card,
+.unit-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  max-width: 520px;
+  padding: 32px;
+  width: 100%;
+}
+
+.auth-brand {
+  color: var(--navy);
+  margin-bottom: 34px;
+}
+
+.auth-card h1,
+.unit-card h1 {
+  color: var(--lp-navy-950);
+  font-family: "Quicksand Local", var(--font-display), sans-serif;
+  font-size: 2rem;
+  margin: 6px 0 10px;
+}
+
+.auth-copy,
+.workflow-intro,
+.pending-note {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.auth-form,
+.proposal-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.auth-form label,
+.proposal-form label,
+.field-label {
+  color: var(--navy);
+  display: grid;
+  font-size: .82rem;
+  font-weight: 800;
+  gap: 6px;
+}
+
+.auth-form input,
+.proposal-form input,
+.proposal-form textarea,
+.unit-select-input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  padding: 11px 12px;
+  width: 100%;
+}
+
+.proposal-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.primary-button,
+.secondary-button,
+.text-button,
+.sidebar-logout {
+  border: 0;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  padding: 10px 14px;
+}
+
+.primary-button {
+  background: var(--navy);
+  color: var(--white);
+}
+
+.secondary-button {
+  background: var(--surface-brand-tint);
+  border: 1px solid var(--border-subtle);
+  color: var(--teal-800);
+}
+
+.text-button {
+  background: transparent;
+  color: var(--teal-800);
+}
+
+.auth-hint {
+  color: var(--muted);
+  display: block;
+  margin-top: 18px;
+}
+
+.unit-card-heading,
+.unit-actions,
+.workflow-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.upload-dropzone {
+  align-items: flex-start;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--brand-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.upload-dropzone span {
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.upload-dropzone input {
+  display: none;
+}
+
+.unit-actions {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.sidebar-logout {
+  background: var(--lp-navy-800);
+  color: var(--white);
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.workflow-panel {
+  display: grid;
+  gap: 4px;
+}
+
+.workflow-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-item {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.workflow-item.has-substitution {
+  border-color: var(--warning);
+  box-shadow: inset 4px 0 0 var(--warning);
+}
+
+.workflow-item-main {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.workflow-item-main > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.workflow-item-main small,
+.substitution-callout span {
+  color: var(--muted);
+}
+
+.item-sector,
+.workflow-status {
+  border-radius: var(--radius-full);
+  font-size: .72rem;
+  font-weight: 850;
+  padding: 5px 8px;
+}
+
+.item-sector {
+  background: var(--surface-brand-tint);
+  color: var(--teal-800);
+}
+
+.workflow-status {
+  justify-self: start;
+}
+
+.status-pendente-setor { background: #f1f5f9; color: var(--muted); }
+.status-aguardando-geos { background: #fff7ed; color: #9a3412; }
+.status-aprovado-geos { background: #ecfdf3; color: var(--success); }
+
+.substitution-callout {
+  background: #fff8e7;
+  border: 1px solid #f2c96d;
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.success-banner {
+  background: #ecfdf3;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-md);
+  color: var(--success);
+  font-weight: 800;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.compact-button {
+  justify-self: start;
+  padding: 8px 12px;
+}
+
 .rules {
   list-style: none;
   margin: 0;

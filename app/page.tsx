@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import * as XLSX from "xlsx";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
@@ -8,6 +9,21 @@ type Status = "Em analise" | "Aguardando setor" | "Em execucao" | "Risco" | "Con
 type Role = Sector | "Comercial";
 type CapItem = { id: string; item: string; sector: Sector; cap: string; decision: string; state: string; quantity: number; unitPrice: number; total: number; source: string };
 type CapBlock = { quantityIndex: number; descriptionIndex: number; unitIndex: number; totalIndex: number };
+type AuthRole = "TI" | "GEOS";
+type DecisionStatus = "Pendente setor" | "Aguardando GEOS" | "Aprovado GEOS";
+type ItemDecision = {
+  status: DecisionStatus;
+  kind: "confirmacao" | "substituicao";
+  proposalName?: string;
+  proposalDetails?: string;
+  proposalUnitPrice?: number;
+  submittedAt: string;
+};
+
+const localUsers: Array<{ username: string; password: string; role: AuthRole; label: string }> = [
+  { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? "", role: "TI", label: "Tecnologia da Informação" },
+  { username: "geos", password: process.env.NEXT_PUBLIC_LP_GEOS_PASSWORD ?? "", role: "GEOS", label: "GEOS / GO / GEU" },
+];
 
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
   { role: "GEOS", email: "geos@lemospassos.com", scope: "completo" },
@@ -290,6 +306,18 @@ function extractUnitName(data: ArrayBuffer) {
 export default function Home() {
   const [activeSector, setActiveSector] = useState<Sector | "Todos">("Todos");
   const [role, setRole] = useState<Role>("GEOS");
+  const [loggedUser, setLoggedUser] = useState<{ username: string; role: AuthRole; label: string } | null>(null);
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [unitConfirmed, setUnitConfirmed] = useState(false);
+  const [unitDraft, setUnitDraft] = useState("Cozinha Central Lisboa");
+  const [decisions, setDecisions] = useState<Record<string, ItemDecision>>({});
+  const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [proposalName, setProposalName] = useState("");
+  const [proposalDetails, setProposalDetails] = useState("");
+  const [proposalUnitPrice, setProposalUnitPrice] = useState("");
+  const [workflowStorageReady, setWorkflowStorageReady] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
   const [imported, setImported] = useState(false);
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
@@ -306,6 +334,35 @@ export default function Home() {
   useEffect(() => {
     setProfileFilterReady(true);
   }, []);
+
+  useEffect(() => {
+    try {
+      const storedDecisions = window.localStorage.getItem("lpgestao:ti-decisions");
+      const storedCap = window.localStorage.getItem("lpgestao:cap-items");
+      if (storedDecisions) setDecisions(JSON.parse(storedDecisions) as Record<string, ItemDecision>);
+      if (storedCap) {
+        const parsedCap = JSON.parse(storedCap) as CapItem[];
+        if (parsedCap.length) {
+          setImportedCapItems(parsedCap);
+          setImported(true);
+        }
+      }
+    } catch {
+      // A sessão local corrompida não impede o usuário de iniciar uma nova.
+    } finally {
+      setWorkflowStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workflowStorageReady) return;
+    window.localStorage.setItem("lpgestao:ti-decisions", JSON.stringify(decisions));
+  }, [decisions, workflowStorageReady]);
+
+  useEffect(() => {
+    if (!workflowStorageReady || !importedCapItems.length) return;
+    window.localStorage.setItem("lpgestao:cap-items", JSON.stringify(importedCapItems));
+  }, [importedCapItems, workflowStorageReady]);
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   // GEOS e Comercial são os únicos perfis com visão completa. Os demais só
@@ -335,6 +392,7 @@ export default function Home() {
       const parsedItems = parseCapWorkbook(await file.arrayBuffer());
       if (!parsedItems.length) throw new Error("Nenhum item previsto foi encontrado nas abas conhecidas.");
       setImportedCapItems(parsedItems);
+      setDecisions({});
       setImportedFileName(file.name);
       const detectedUnitName = extractUnitName(await file.arrayBuffer());
       if (detectedUnitName) setUnitName(detectedUnitName);
@@ -345,6 +403,62 @@ export default function Home() {
     }
   }
 
+  function signIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const found = localUsers.find((user) => user.username === loginUser.trim().toLowerCase() && user.password === loginPassword);
+    if (!found) {
+      setLoginError("Usuário ou senha inválidos.");
+      return;
+    }
+    setLoggedUser({ username: found.username, role: found.role, label: found.label });
+    setRole(found.role);
+    setLoginError("");
+    setLoginPassword("");
+    setUnitConfirmed(false);
+  }
+
+  function signOut() {
+    setLoggedUser(null);
+    setUnitConfirmed(false);
+    setLoginUser("");
+    setLoginPassword("");
+  }
+
+  function confirmCapItem(itemId: string) {
+    setDecisions((current) => ({
+      ...current,
+      [itemId]: { status: "Aguardando GEOS", kind: "confirmacao", submittedAt: new Date().toISOString() },
+    }));
+  }
+
+  function openProposal(item: CapItem) {
+    setEditingProposalId(item.id);
+    setProposalName(item.item);
+    setProposalDetails("");
+    setProposalUnitPrice(String(item.unitPrice));
+  }
+
+  function submitProposal(item: CapItem) {
+    const parsedPrice = numberValue(proposalUnitPrice);
+    if (!proposalName.trim() || parsedPrice <= 0) return;
+    setDecisions((current) => ({
+      ...current,
+      [item.id]: {
+        status: "Aguardando GEOS",
+        kind: "substituicao",
+        proposalName: proposalName.trim(),
+        proposalDetails: proposalDetails.trim(),
+        proposalUnitPrice: parsedPrice,
+        submittedAt: new Date().toISOString(),
+      },
+    }));
+    setEditingProposalId(null);
+  }
+
+  function approveDecision(itemId: string) {
+    setDecisions((current) => ({ ...current, [itemId]: { ...current[itemId], status: "Aprovado GEOS" } }));
+  }
+
   const riskCount = tasks.filter((task) => task.status === "Risco" || task.risk === "alto").length;
   const doneCount = visibleTasks.filter((task) => task.status === "Concluido").length;
 
@@ -352,6 +466,48 @@ export default function Home() {
     setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, status } : task));
     setDraggedTaskId(null);
     setDragOverStatus(null);
+  }
+
+  const tiWorkflowItems = capItems.filter((item) => item.sector === "TI");
+  const workflowItems = tiWorkflowItems;
+  const workflowComplete = tiWorkflowItems.length > 0 && tiWorkflowItems.every((item) => decisions[item.id]?.status === "Aprovado GEOS");
+
+  if (!loggedUser) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="brand auth-brand">
+            <img src="/brand/logo-lemospassos-badge.png" alt="Grupo LemosPassos" />
+            <div><strong>LP Gestao</strong><small>Implantacao pos-CAP</small></div>
+          </div>
+          <p className="eyebrow">Acesso ao projeto</p>
+          <h1>Entrar no LP Gestão</h1>
+          <p className="auth-copy">Use seu acesso para acompanhar e validar os itens da unidade.</p>
+          <form className="auth-form" onSubmit={signIn}>
+            <label>Usuário<input value={loginUser} onChange={(event) => setLoginUser(event.target.value)} autoComplete="username" /></label>
+            <label>Senha<input type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} autoComplete="current-password" /></label>
+            {loginError && <p className="import-error" role="alert">{loginError}</p>}
+            <button className="primary-button" type="submit">Entrar</button>
+          </form>
+          <small className="auth-hint">Acesso TI criado para teste: usuário <b>ti</b>.</small>
+        </section>
+      </main>
+    );
+  }
+
+  if (!unitConfirmed) {
+    return (
+      <main className="auth-shell">
+        <section className="unit-card">
+          <div className="unit-card-heading"><div><p className="eyebrow">Primeiro passo</p><h1>Qual unidade vamos tratar?</h1></div><button className="text-button" type="button" onClick={signOut}>Sair</button></div>
+          <p className="auth-copy">Olá, {loggedUser.label}. Selecione a unidade e carregue a CAP base para iniciar a validação.</p>
+          <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} onChange={(event) => setUnitDraft(event.target.value)} /></label>
+          <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "CAP carregada" : "Carregar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Opcional para continuar com os dados de demonstração."}</span></label>
+          <div className="unit-actions"><button className="primary-button" type="button" onClick={() => { setUnitName(unitDraft.trim() || "Unidade sem nome"); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
+          {importError && <p className="import-error" role="alert">{importError}</p>}
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -375,9 +531,11 @@ export default function Home() {
           <strong>25/09/2026</strong>
           <span>{riskCount} pontos exigem atencao</span>
         </div>
-        <label className="profile-switcher">
-          <small>Perfil de demonstracao</small>
-          <select
+        <div className="profile-switcher">
+          <small>Usuário conectado</small>
+          <strong>{loggedUser.username} · {loggedUser.role}</strong>
+          <span>{loggedUser.label}</span>
+          {false && <select
             aria-label="Perfil de demonstracao"
             disabled={!profileFilterReady}
             value={role}
@@ -387,9 +545,9 @@ export default function Home() {
             }}
           >
             {profiles.map((item) => <option key={item.role} value={item.role}>{item.role}</option>)}
-          </select>
+          </select>}
           <span>{profile.email} · {profile.scope === "completo" ? "visao completa" : `somente ${profile.scope}`}</span>
-        </label>
+        </div>
       </aside>
 
       <section className="workspace">
@@ -507,7 +665,41 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="split" id="cap">
+        <section className="panel workflow-panel" id="cap">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Validação setorial · {loggedUser.role}</p>
+              <h2>{loggedUser.role === "TI" ? "Itens de TI da unidade" : "Aprovações recebidas do TI"}</h2>
+            </div>
+            <span className="badge">{workflowItems.length} itens TI</span>
+          </div>
+          {loggedUser.role === "TI" && workflowComplete && <div className="success-banner">Tudo OK: a GEOS aprovou todos os itens de TI desta unidade.</div>}
+          {loggedUser.role === "TI" && !workflowComplete && <p className="workflow-intro">Confirme o item original ou proponha uma substituição. Toda alteração fica destacada e só passa a valer após aprovação da GEOS.</p>}
+          <div className="workflow-list">
+            {workflowItems.map((item) => {
+              const decision = decisions[item.id];
+              const isProposal = decision?.kind === "substituicao";
+              const currentName = isProposal ? decision?.proposalName : item.item;
+              const currentPrice = isProposal ? decision?.proposalUnitPrice : item.unitPrice;
+              return (
+                <article className={`workflow-item ${isProposal ? "has-substitution" : ""}`} key={item.id}>
+                  <div className="workflow-item-main">
+                    <div><span className="item-sector">{item.sector}</span><strong>{item.item}</strong></div>
+                    <small>CAP: {item.quantity} un. · R$ {item.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · Total R$ {item.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</small>
+                  </div>
+                  {isProposal && <div className="substitution-callout"><b>Substituição proposta:</b> {currentName} · R$ {currentPrice?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span>{decision?.proposalDetails || "Sem justificativa adicional."}</span></div>}
+                  <span className={`workflow-status status-${(decision?.status ?? "Pendente setor").toLowerCase().replaceAll(" ", "-")}`}>{decision?.status ?? "Pendente setor"}</span>
+                  {loggedUser.role === "TI" && !decision && <div className="workflow-actions"><button className="secondary-button" type="button" onClick={() => confirmCapItem(item.id)}>Confirmar item</button><button className="evidence-button" type="button" onClick={() => openProposal(item)}>Propor substituição</button></div>}
+                  {loggedUser.role === "TI" && decision?.status === "Aguardando GEOS" && <small className="pending-note">Enviado para análise da GEOS. A alteração ainda não está efetivada.</small>}
+                  {loggedUser.role === "GEOS" && decision?.status === "Aguardando GEOS" && <button className="primary-button compact-button" type="button" onClick={() => approveDecision(item.id)}>Aprovar {isProposal ? "substituição" : "item"}</button>}
+                  {editingProposalId === item.id && <div className="proposal-form"><label>Novo item / modelo<input value={proposalName} onChange={(event) => setProposalName(event.target.value)} /></label><label>Configuração ou justificativa<textarea value={proposalDetails} onChange={(event) => setProposalDetails(event.target.value)} /></label><label>Valor unitário<input inputMode="decimal" value={proposalUnitPrice} onChange={(event) => setProposalUnitPrice(event.target.value)} /></label><div className="workflow-actions"><button className="primary-button compact-button" type="button" onClick={() => submitProposal(item)}>Enviar para GEOS</button><button className="text-button" type="button" onClick={() => setEditingProposalId(null)}>Cancelar</button></div></div>}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="split" id="cap-base">
           <article className="panel">
             <div className="panel-heading">
               <div>
