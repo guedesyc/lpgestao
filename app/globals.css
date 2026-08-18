@@ -577,6 +577,56 @@ a {
   gap: 4px;
 }
 
+#cap-base,
+#regras,
+#fluxo {
+  display: none;
+}
+
+.cap-registry-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.cap-registry-card {
+  align-items: center;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.cap-registry-card:hover {
+  border-color: var(--brand-secondary);
+}
+
+.cap-registry-card span {
+  display: grid;
+  gap: 4px;
+}
+
+.cap-registry-card small {
+  color: var(--muted);
+}
+
+.registry-done,
+.registry-pending {
+  border-radius: var(--radius-full);
+  font-size: .72rem;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.registry-done { background: #ecfdf3; color: var(--success); }
+.registry-pending { background: #fff7ed; color: #9a3412; }
+
 .workflow-list {
   display: grid;
   gap: 10px;
@@ -634,6 +684,21 @@ a {
 .status-pendente-setor { background: #f1f5f9; color: var(--muted); }
 .status-aguardando-geos { background: #fff7ed; color: #9a3412; }
 .status-aprovado-geos { background: #ecfdf3; color: var(--success); }
+.status-rejeitado-geos { background: #fef2f2; color: var(--danger); }
+
+.reject-button {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius-md);
+  color: var(--danger);
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.rejection-note {
+  color: var(--danger);
+  font-size: .82rem;
+}
 
 .substitution-callout {
   background: #fff8e7;

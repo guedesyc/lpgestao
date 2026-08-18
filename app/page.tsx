@@ -5,12 +5,12 @@ import type { FormEvent } from "react";
 import * as XLSX from "xlsx";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
-type Status = "Em analise" | "Aguardando setor" | "Em execucao" | "Risco" | "Concluido";
+type Status = "Em analise" | "Aguardando setor" | "Risco" | "Concluido";
 type Role = Sector | "Comercial";
 type CapItem = { id: string; item: string; sector: Sector; cap: string; decision: string; state: string; quantity: number; unitPrice: number; total: number; source: string };
 type CapBlock = { quantityIndex: number; descriptionIndex: number; unitIndex: number; totalIndex: number };
-type AuthRole = "TI" | "GEOS";
-type DecisionStatus = "Pendente setor" | "Aguardando GEOS" | "Aprovado GEOS";
+type AuthRole = "TI" | "GEOS" | "Comercial";
+type DecisionStatus = "Pendente setor" | "Aguardando GEOS" | "Aprovado GEOS" | "Rejeitado GEOS";
 type ItemDecision = {
   status: DecisionStatus;
   kind: "confirmacao" | "substituicao";
@@ -18,11 +18,14 @@ type ItemDecision = {
   proposalDetails?: string;
   proposalUnitPrice?: number;
   submittedAt: string;
+  rejectionNote?: string;
 };
+type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[] };
 
 const localUsers: Array<{ username: string; password: string; role: AuthRole; label: string }> = [
   { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? "", role: "TI", label: "Tecnologia da Informação" },
   { username: "geos", password: process.env.NEXT_PUBLIC_LP_GEOS_PASSWORD ?? "", role: "GEOS", label: "GEOS / GO / GEU" },
+  { username: "comercial", password: process.env.NEXT_PUBLIC_LP_COMERCIAL_PASSWORD ?? "", role: "Comercial", label: "Comercial" },
 ];
 
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
@@ -59,7 +62,7 @@ const initialTasks: Array<{
     id: 1,
     title: "Analisar minuta e liberar frente administrativa",
     sector: "Administracao",
-    status: "Em execucao",
+    status: "Em analise",
     due: "D-28",
     risk: "medio",
     note: "Atividade permitida antes do contrato assinado.",
@@ -77,7 +80,7 @@ const initialTasks: Array<{
     id: 3,
     title: "Confirmar computadores, rede e impressoras",
     sector: "TI",
-    status: "Risco",
+    status: "Em analise",
     due: "D-18",
     risk: "alto",
     note: "Demora de resposta aciona risco do projeto.",
@@ -86,7 +89,7 @@ const initialTasks: Array<{
     id: 4,
     title: "Abrir RM dos itens aprovados",
     sector: "GESU",
-    status: "Aguardando setor",
+    status: "Em analise",
     due: "D-16",
     risk: "medio",
     note: "GESU enxerga somente a fatia de suprimentos, nao a CAP completa.",
@@ -95,7 +98,7 @@ const initialTasks: Array<{
     id: 5,
     title: "Definir quadro e exames admissionais",
     sector: "RH",
-    status: "Aguardando setor",
+    status: "Em analise",
     due: "D-15",
     risk: "medio",
     note: "Aumento de quadro vira excecao do RH.",
@@ -104,7 +107,7 @@ const initialTasks: Array<{
     id: 6,
     title: "Vistoria de estrutura e ponto zero",
     sector: "Manutencao",
-    status: "Em execucao",
+    status: "Em analise",
     due: "D-14",
     risk: "baixo",
     note: "Energia, cabos, acesso, agua, gordura e equipamentos existentes.",
@@ -113,7 +116,7 @@ const initialTasks: Array<{
     id: 7,
     title: "Planejar abastecimento e arranque",
     sector: "PCP",
-    status: "Aguardando setor",
+    status: "Em analise",
     due: "D-10",
     risk: "baixo",
     note: "Insumos e cardapio inicial dependem da filial liberada.",
@@ -122,7 +125,7 @@ const initialTasks: Array<{
     id: 8,
     title: "Checklist de inauguracao",
     sector: "GEOS",
-    status: "Concluido",
+    status: "Em analise",
     due: "D-2",
     risk: "baixo",
     note: "Estrutura, equipe, materiais, POPs e operacao funcional.",
@@ -144,7 +147,7 @@ const approvals = [
   "Perfil de setor ve apenas sua fatia da CAP.",
 ];
 
-const boardStatuses: Status[] = ["Em analise", "Aguardando setor", "Em execucao", "Risco", "Concluido"];
+const boardStatuses: Status[] = ["Em analise", "Aguardando setor", "Risco", "Concluido"];
 
 function statusLabel(status: Status) {
   return status;
@@ -318,6 +321,9 @@ export default function Home() {
   const [proposalDetails, setProposalDetails] = useState("");
   const [proposalUnitPrice, setProposalUnitPrice] = useState("");
   const [workflowStorageReady, setWorkflowStorageReady] = useState(false);
+  const [capRegistry, setCapRegistry] = useState<CapRegistryEntry[]>([
+    { id: "demo-cap", unitName: "Cozinha Central Lisboa", fileName: "CAP de demonstração", status: "PENDENTE", items: fallbackCapItems },
+  ]);
   const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
   const [imported, setImported] = useState(false);
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
@@ -339,6 +345,7 @@ export default function Home() {
     try {
       const storedDecisions = window.localStorage.getItem("lpgestao:ti-decisions");
       const storedCap = window.localStorage.getItem("lpgestao:cap-items");
+      const storedRegistry = window.localStorage.getItem("lpgestao:cap-registry");
       if (storedDecisions) setDecisions(JSON.parse(storedDecisions) as Record<string, ItemDecision>);
       if (storedCap) {
         const parsedCap = JSON.parse(storedCap) as CapItem[];
@@ -346,6 +353,10 @@ export default function Home() {
           setImportedCapItems(parsedCap);
           setImported(true);
         }
+      }
+      if (storedRegistry) {
+        const parsedRegistry = JSON.parse(storedRegistry) as CapRegistryEntry[];
+        if (parsedRegistry.length) setCapRegistry(parsedRegistry);
       }
     } catch {
       // A sessão local corrompida não impede o usuário de iniciar uma nova.
@@ -363,6 +374,11 @@ export default function Home() {
     if (!workflowStorageReady || !importedCapItems.length) return;
     window.localStorage.setItem("lpgestao:cap-items", JSON.stringify(importedCapItems));
   }, [importedCapItems, workflowStorageReady]);
+
+  useEffect(() => {
+    if (!workflowStorageReady) return;
+    window.localStorage.setItem("lpgestao:cap-registry", JSON.stringify(capRegistry));
+  }, [capRegistry, workflowStorageReady]);
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   // GEOS e Comercial são os únicos perfis com visão completa. Os demais só
@@ -391,10 +407,15 @@ export default function Home() {
     try {
       const parsedItems = parseCapWorkbook(await file.arrayBuffer());
       if (!parsedItems.length) throw new Error("Nenhum item previsto foi encontrado nas abas conhecidas.");
+      const detectedUnitName = extractUnitName(await file.arrayBuffer());
       setImportedCapItems(parsedItems);
       setDecisions({});
       setImportedFileName(file.name);
-      const detectedUnitName = extractUnitName(await file.arrayBuffer());
+      const registeredUnit = detectedUnitName || unitDraft.trim() || "Unidade sem nome";
+      setCapRegistry((current) => {
+        const nextEntry: CapRegistryEntry = { id: `cap-${Date.now()}`, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems };
+        return [...current.filter((entry) => entry.unitName !== registeredUnit), nextEntry];
+      });
       if (detectedUnitName) setUnitName(detectedUnitName);
       setImported(true);
     } catch (error) {
@@ -459,10 +480,15 @@ export default function Home() {
     setDecisions((current) => ({ ...current, [itemId]: { ...current[itemId], status: "Aprovado GEOS" } }));
   }
 
+  function rejectDecision(itemId: string) {
+    setDecisions((current) => ({ ...current, [itemId]: { ...current[itemId], status: "Rejeitado GEOS", rejectionNote: "A substituição foi devolvida para revisão do setor." } }));
+  }
+
   const riskCount = tasks.filter((task) => task.status === "Risco" || task.risk === "alto").length;
   const doneCount = visibleTasks.filter((task) => task.status === "Concluido").length;
 
   function moveTask(taskId: number, status: Status) {
+    if (!loggedUser || (loggedUser.role !== "GEOS" && loggedUser.role !== "Comercial")) return;
     setTasks((currentTasks) => currentTasks.map((task) => task.id === taskId ? { ...task, status } : task));
     setDraggedTaskId(null);
     setDragOverStatus(null);
@@ -471,6 +497,11 @@ export default function Home() {
   const tiWorkflowItems = capItems.filter((item) => item.sector === "TI");
   const workflowItems = tiWorkflowItems;
   const workflowComplete = tiWorkflowItems.length > 0 && tiWorkflowItems.every((item) => decisions[item.id]?.status === "Aprovado GEOS");
+  const availableCaps = capRegistry;
+  const statusForCap = (cap: CapRegistryEntry) => {
+    const sectorItems = cap.items.filter((item) => item.sector === "TI");
+    return sectorItems.length > 0 && sectorItems.every((item) => decisions[item.id]?.status === "Aprovado GEOS") ? "REALIZADA" : cap.status;
+  };
 
   if (!loggedUser) {
     return (
@@ -501,8 +532,17 @@ export default function Home() {
         <section className="unit-card">
           <div className="unit-card-heading"><div><p className="eyebrow">Primeiro passo</p><h1>Qual unidade vamos tratar?</h1></div><button className="text-button" type="button" onClick={signOut}>Sair</button></div>
           <p className="auth-copy">Olá, {loggedUser.label}. Selecione a unidade e carregue a CAP base para iniciar a validação.</p>
+          <div className="cap-registry-list">
+            <p className="eyebrow">CAPs disponíveis</p>
+            {availableCaps.map((cap) => (
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setUnitConfirmed(true); }}>
+                <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
+                <strong className={statusForCap(cap) === "REALIZADA" ? "registry-done" : "registry-pending"}>{statusForCap(cap)}</strong>
+              </button>
+            ))}
+          </div>
           <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} onChange={(event) => setUnitDraft(event.target.value)} /></label>
-          <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "CAP carregada" : "Carregar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Opcional para continuar com os dados de demonstração."}</span></label>
+          {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "Trocar CAP da unidade" : "Cadastrar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Disponível somente para GEOS/Comercial."}</span></label>}
           <div className="unit-actions"><button className="primary-button" type="button" onClick={() => { setUnitName(unitDraft.trim() || "Unidade sem nome"); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
           {importError && <p className="import-error" role="alert">{importError}</p>}
         </section>
@@ -523,8 +563,6 @@ export default function Home() {
         <nav>
           <a className="active" href="#painel">Painel</a>
           <a href="#cap">CAP setorizada</a>
-          <a href="#fluxo">Fluxo</a>
-          <a href="#regras">Regras</a>
         </nav>
         <div className="sidebar-card">
           <small>Data alvo</small>
@@ -689,9 +727,10 @@ export default function Home() {
                   </div>
                   {isProposal && <div className="substitution-callout"><b>Substituição proposta:</b> {currentName} · R$ {currentPrice?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}<span>{decision?.proposalDetails || "Sem justificativa adicional."}</span></div>}
                   <span className={`workflow-status status-${(decision?.status ?? "Pendente setor").toLowerCase().replaceAll(" ", "-")}`}>{decision?.status ?? "Pendente setor"}</span>
-                  {loggedUser.role === "TI" && !decision && <div className="workflow-actions"><button className="secondary-button" type="button" onClick={() => confirmCapItem(item.id)}>Confirmar item</button><button className="evidence-button" type="button" onClick={() => openProposal(item)}>Propor substituição</button></div>}
+                  {loggedUser.role === "TI" && (!decision || decision.status === "Rejeitado GEOS") && <div className="workflow-actions"><button className="secondary-button" type="button" onClick={() => confirmCapItem(item.id)}>Confirmar item</button><button className="evidence-button" type="button" onClick={() => openProposal(item)}>Propor substituição</button></div>}
                   {loggedUser.role === "TI" && decision?.status === "Aguardando GEOS" && <small className="pending-note">Enviado para análise da GEOS. A alteração ainda não está efetivada.</small>}
-                  {loggedUser.role === "GEOS" && decision?.status === "Aguardando GEOS" && <button className="primary-button compact-button" type="button" onClick={() => approveDecision(item.id)}>Aprovar {isProposal ? "substituição" : "item"}</button>}
+                  {loggedUser.role === "TI" && decision?.status === "Rejeitado GEOS" && <small className="rejection-note">{decision.rejectionNote} Faça uma nova confirmação ou proponha outra opção.</small>}
+                  {loggedUser.role !== "TI" && decision?.status === "Aguardando GEOS" && <div className="workflow-actions"><button className="primary-button compact-button" type="button" onClick={() => approveDecision(item.id)}>Aprovar {isProposal ? "substituição" : "item"}</button>{isProposal && <button className="reject-button" type="button" onClick={() => rejectDecision(item.id)}>Rejeitar substituição</button>}</div>}
                   {editingProposalId === item.id && <div className="proposal-form"><label>Novo item / modelo<input value={proposalName} onChange={(event) => setProposalName(event.target.value)} /></label><label>Configuração ou justificativa<textarea value={proposalDetails} onChange={(event) => setProposalDetails(event.target.value)} /></label><label>Valor unitário<input inputMode="decimal" value={proposalUnitPrice} onChange={(event) => setProposalUnitPrice(event.target.value)} /></label><div className="workflow-actions"><button className="primary-button compact-button" type="button" onClick={() => submitProposal(item)}>Enviar para GEOS</button><button className="text-button" type="button" onClick={() => setEditingProposalId(null)}>Cancelar</button></div></div>}
                 </article>
               );
