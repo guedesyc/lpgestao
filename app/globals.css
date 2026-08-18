@@ -424,6 +424,13 @@ a {
   padding: 10px 12px;
 }
 
+.topline .active-role {
+  color: var(--teal-800);
+  font-size: .82rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
 .auth-shell {
   align-items: center;
   background: linear-gradient(135deg, #eef4f8, #dbe9e8);

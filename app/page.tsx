@@ -347,16 +347,22 @@ export default function Home() {
       const storedCap = window.localStorage.getItem("lpgestao:cap-items");
       const storedRegistry = window.localStorage.getItem("lpgestao:cap-registry");
       if (storedDecisions) setDecisions(JSON.parse(storedDecisions) as Record<string, ItemDecision>);
-      if (storedCap) {
-        const parsedCap = JSON.parse(storedCap) as CapItem[];
-        if (parsedCap.length) {
-          setImportedCapItems(parsedCap);
-          setImported(true);
-        }
-      }
+      const parsedCap = storedCap ? JSON.parse(storedCap) as CapItem[] : [];
       if (storedRegistry) {
         const parsedRegistry = JSON.parse(storedRegistry) as CapRegistryEntry[];
-        if (parsedRegistry.length) setCapRegistry(parsedRegistry);
+        if (parsedRegistry.length) {
+          setCapRegistry(parsedRegistry);
+          const registeredItems = parsedRegistry[0].items;
+          // Migrate a legacy full CAP only when it is larger than the registry.
+          // A sector selection must never replace the registered full CAP.
+          const sourceItems = parsedCap.length > registeredItems.length ? parsedCap : registeredItems;
+          setImportedCapItems(sourceItems);
+          setImported(true);
+        }
+      } else if (parsedCap.length) {
+        setImportedCapItems(parsedCap);
+        setImported(true);
+        setCapRegistry([{ id: "migrated-cap", unitName: "Cozinha Central Lisboa", fileName: "CAP migrada", status: "PENDENTE", items: parsedCap }]);
       }
     } catch {
       // A sessão local corrompida não impede o usuário de iniciar uma nova.
@@ -369,11 +375,6 @@ export default function Home() {
     if (!workflowStorageReady) return;
     window.localStorage.setItem("lpgestao:ti-decisions", JSON.stringify(decisions));
   }, [decisions, workflowStorageReady]);
-
-  useEffect(() => {
-    if (!workflowStorageReady || !importedCapItems.length) return;
-    window.localStorage.setItem("lpgestao:cap-items", JSON.stringify(importedCapItems));
-  }, [importedCapItems, workflowStorageReady]);
 
   useEffect(() => {
     if (!workflowStorageReady) return;
@@ -593,6 +594,7 @@ export default function Home() {
           <div>
             <p className="eyebrow">Unidade em implantacao</p>
             <input className="unit-name-input" aria-label="Nome da unidade" value={unitName} onChange={(event) => setUnitName(event.target.value)} />
+            <p className="active-role">Perfil ativo: {loggedUser.role} · {loggedUser.label}</p>
             <p>
               Acompanhamento pos-CAP com responsabilidade clara, evidencias e
               riscos visiveis ate a inauguracao.
