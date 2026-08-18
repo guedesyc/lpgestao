@@ -31,6 +31,14 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /lpgestao
+      - name: Normalize project-site asset folder
+        run: |
+          # vinext places assetPrefix files under dist/client/lpgestao.
+          # The Pages artifact itself is already mounted at /lpgestao.
+          if [ -d dist/client/lpgestao ]; then
+            cp -R dist/client/lpgestao/. dist/client/
+            rm -rf dist/client/lpgestao
+          fi
       - name: Disable Jekyll processing
         run: touch dist/client/.nojekyll
       - name: Upload Pages artifact
