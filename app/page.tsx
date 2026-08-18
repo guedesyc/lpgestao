@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import * as XLSX from "xlsx";
 
+const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
 type Status = "Em analise" | "Aguardando setor" | "Risco" | "Concluido";
 type Role = Sector | "Comercial";
@@ -631,7 +633,7 @@ export default function Home() {
       <main className="auth-shell">
         <section className="auth-card">
           <div className="brand auth-brand">
-            <img src="/brand/logo-lemospassos-badge.png" alt="Grupo LemosPassos" />
+            <img src={`${publicBasePath}/brand/logo-lemospassos-badge.png`} alt="Grupo LemosPassos" />
             <div><strong>LP Gestao</strong><small>Implantacao pos-CAP</small></div>
           </div>
           <p className="eyebrow">Acesso ao projeto</p>
@@ -689,7 +691,7 @@ export default function Home() {
     <main className="shell">
       <aside className="sidebar" aria-label="Navegacao do prototipo">
         <div className="brand">
-          <img src="/brand/logo-lemospassos-badge.png" alt="Grupo LemosPassos" />
+          <img src={`${publicBasePath}/brand/logo-lemospassos-badge.png`} alt="Grupo LemosPassos" />
           <div>
             <strong>LP Gestao</strong>
             <small>Implantacao pos-CAP</small>
@@ -726,7 +728,7 @@ export default function Home() {
       <section className="workspace">
         <header className="topline" id="painel">
           <div>
-            <div className="app-brandline"><img src="/brand/lemos-passos.png" alt="Grupo LemosPassos" /><div><h1>LP Gestão</h1><span>Início e Fechamento de Unidade</span></div></div>
+            <div className="app-brandline"><img src={`${publicBasePath}/brand/lemos-passos.png`} alt="Grupo LemosPassos" /><div><h1>LP Gestão</h1><span>Início e Fechamento de Unidade</span></div></div>
             <nav className="top-nav" aria-label="Navegação principal"><a className="active" href="#painel">Painel</a><a href="#cap">CAP setorizada</a></nav>
             <p className="eyebrow">Unidade em implantacao</p>
             <input className="unit-name-input" aria-label="Nome da unidade" value={unitName} readOnly={!canEditUnit} onChange={(event) => setUnitName(event.target.value)} />

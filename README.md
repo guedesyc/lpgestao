@@ -7,6 +7,12 @@ perfis setoriais.
 
 Repositório: https://github.com/guedesyc/lpgestao
 
+Aplicação publicada (após o primeiro workflow do GitHub Pages):
+https://guedesyc.github.io/lpgestao/
+
+O workflow `.github/workflows/deploy-pages.yml` gera uma exportação estática;
+visitantes não precisam instalar Node.js ou qualquer dependência.
+
 ## Estado atual
 
 - GEOS e Comercial têm visão completa e podem importar/trocar a CAP.
