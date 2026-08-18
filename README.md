@@ -1,4 +1,42 @@
-# vinext-starter
+# LP Gestão
+
+Sistema local de acompanhamento pós-CAP para início e fechamento de unidades.
+O protótipo organiza a CAP por setor, controla confirmações e substituições,
+mantém o fluxo Kanban e destaca riscos e conclusões para GEOS, Comercial e os
+perfis setoriais.
+
+Repositório: https://github.com/guedesyc/lpgestao
+
+## Estado atual
+
+- GEOS e Comercial têm visão completa e podem importar/trocar a CAP.
+- TI, GESU, Administração, RH, Manutenção e PCP veem somente seu setor.
+- Cada setor pode confirmar itens individualmente ou usar **Confirmar Todos**.
+- Substituições e novos valores só entram na CAP final após aprovação da GEOS.
+- A aba MÃO DE OBRA recalcula o custo mensal com a composição da coluna AG.
+- O Kanban sinaliza Aguardando Setor, Risco e Concluído com cores próprias.
+- Setores com todos os itens aprovados ou tarefas concluídas aparecem como
+  **Tudo OK** em Responsáveis.
+
+## Desenvolvimento local
+
+```bash
+npm install
+npm run dev
+```
+
+Acesse http://localhost:3000. Para validar antes de publicar:
+
+```bash
+npm test
+```
+
+### Credenciais locais de demonstração
+
+As senhas podem ser configuradas por variáveis `NEXT_PUBLIC_LP_*`; no ambiente
+local, os perfis secundários usam a senha de demonstração definida no projeto.
+
+---
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
