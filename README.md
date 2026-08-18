@@ -39,8 +39,15 @@ npm test
 
 ### Credenciais locais de demonstração
 
-As senhas podem ser configuradas por variáveis `NEXT_PUBLIC_LP_*`; no ambiente
-local, os perfis secundários usam a senha de demonstração definida no projeto.
+As senhas podem ser configuradas por variáveis `NEXT_PUBLIC_LP_*`. Quando essas
+variáveis não existem — como no GitHub Pages — o protótipo usa a senha de
+demonstração `1234` para todos os perfis:
+
+`ti`, `geos`, `comercial`, `gesu`, `administracao`, `rh`, `manutencao` e `pcp`.
+
+Como o Pages é estático, CAPs importadas, decisões e tarefas alteradas ficam no
+`localStorage` de cada navegador. Para compartilhar esses dados entre usuários
+será necessário um backend/banco de dados na próxima etapa.
 
 ---
 
