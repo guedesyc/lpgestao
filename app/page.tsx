@@ -321,9 +321,7 @@ export default function Home() {
   const [proposalDetails, setProposalDetails] = useState("");
   const [proposalUnitPrice, setProposalUnitPrice] = useState("");
   const [workflowStorageReady, setWorkflowStorageReady] = useState(false);
-  const [capRegistry, setCapRegistry] = useState<CapRegistryEntry[]>([
-    { id: "demo-cap", unitName: "Cozinha Central Lisboa", fileName: "CAP de demonstração", status: "PENDENTE", items: fallbackCapItems },
-  ]);
+  const [capRegistry, setCapRegistry] = useState<CapRegistryEntry[]>([]);
   const [evidenceIds, setEvidenceIds] = useState<number[]>([6, 8]);
   const [imported, setImported] = useState(false);
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
@@ -350,19 +348,29 @@ export default function Home() {
       const parsedCap = storedCap ? JSON.parse(storedCap) as CapItem[] : [];
       if (storedRegistry) {
         const parsedRegistry = JSON.parse(storedRegistry) as CapRegistryEntry[];
-        if (parsedRegistry.length) {
-          setCapRegistry(parsedRegistry);
-          const registeredItems = parsedRegistry[0].items;
+        const realRegistry = parsedRegistry.filter((entry) => entry.fileName !== "CAP de demonstração" && entry.id !== "demo-cap");
+        if (realRegistry.length) {
+          setCapRegistry(realRegistry);
+          const registeredItems = realRegistry[0].items;
           // Migrate a legacy full CAP only when it is larger than the registry.
           // A sector selection must never replace the registered full CAP.
           const sourceItems = parsedCap.length > registeredItems.length ? parsedCap : registeredItems;
           setImportedCapItems(sourceItems);
           setImported(true);
+        } else if (parsedCap.length > 5) {
+          // Migrate an older full CAP, but never revive the five-item demo CAP.
+          setImportedCapItems(parsedCap);
+          setImported(true);
+          setCapRegistry([{ id: "migrated-cap", unitName: "Cozinha Central Lisboa", fileName: "CAP migrada", status: "PENDENTE", items: parsedCap }]);
+        } else {
+          setCapRegistry([]);
         }
-      } else if (parsedCap.length) {
+      } else if (parsedCap.length > 5) {
         setImportedCapItems(parsedCap);
         setImported(true);
         setCapRegistry([{ id: "migrated-cap", unitName: "Cozinha Central Lisboa", fileName: "CAP migrada", status: "PENDENTE", items: parsedCap }]);
+      } else {
+        setCapRegistry([]);
       }
     } catch {
       // A sessão local corrompida não impede o usuário de iniciar uma nova.
@@ -535,6 +543,7 @@ export default function Home() {
           <p className="auth-copy">Olá, {loggedUser.label}. Selecione a unidade e carregue a CAP base para iniciar a validação.</p>
           <div className="cap-registry-list">
             <p className="eyebrow">CAPs disponíveis</p>
+            {!availableCaps.length && <p className="empty-registry">Nenhuma CAP real cadastrada para esta unidade. GEOS/Comercial devem cadastrar a CAP base.</p>}
             {availableCaps.map((cap) => (
               <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
@@ -544,7 +553,7 @@ export default function Home() {
           </div>
           <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} onChange={(event) => setUnitDraft(event.target.value)} /></label>
           {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "Trocar CAP da unidade" : "Cadastrar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Disponível somente para GEOS/Comercial."}</span></label>}
-          <div className="unit-actions"><button className="primary-button" type="button" onClick={() => { setUnitName(unitDraft.trim() || "Unidade sem nome"); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
+          <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported} onClick={() => { setUnitName(unitDraft.trim() || "Unidade sem nome"); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
           {importError && <p className="import-error" role="alert">{importError}</p>}
         </section>
       </main>

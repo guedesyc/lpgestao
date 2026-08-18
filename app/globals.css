@@ -614,6 +614,15 @@ a {
   border-color: var(--brand-secondary);
 }
 
+.empty-registry {
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  margin: 0;
+  padding: 14px;
+}
+
 .cap-registry-card span {
   display: grid;
   gap: 4px;
