@@ -5,6 +5,9 @@ import type { FormEvent } from "react";
 import * as XLSX from "xlsx";
 
 const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+// O GitHub Pages é estático e não recebe .env.local. Esta senha é apenas para
+// demonstração do protótipo; em produção, a autenticação deve ficar no servidor.
+const demoPassword = "1234";
 
 type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manutencao";
 type Status = "Em analise" | "Aguardando setor" | "Risco" | "Concluido";
@@ -26,14 +29,14 @@ type ItemDecision = {
 type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[] };
 
 const localUsers: Array<{ username: string; password: string; role: AuthRole; label: string }> = [
-  { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? "", role: "TI", label: "Tecnologia da Informação" },
-  { username: "geos", password: process.env.NEXT_PUBLIC_LP_GEOS_PASSWORD ?? "", role: "GEOS", label: "GEOS / GO / GEU" },
-  { username: "comercial", password: process.env.NEXT_PUBLIC_LP_COMERCIAL_PASSWORD ?? "", role: "Comercial", label: "Comercial" },
-  { username: "gesu", password: process.env.NEXT_PUBLIC_LP_GESU_PASSWORD ?? "", role: "GESU", label: "Gerência de Suprimentos" },
-  { username: "administracao", password: process.env.NEXT_PUBLIC_LP_ADMINISTRACAO_PASSWORD ?? "", role: "Administracao", label: "Administração" },
-  { username: "rh", password: process.env.NEXT_PUBLIC_LP_RH_PASSWORD ?? "", role: "RH", label: "Recursos Humanos" },
-  { username: "manutencao", password: process.env.NEXT_PUBLIC_LP_MANUTENCAO_PASSWORD ?? "", role: "Manutencao", label: "Manutenção" },
-  { username: "pcp", password: process.env.NEXT_PUBLIC_LP_PCP_PASSWORD ?? "", role: "PCP", label: "PCP" },
+  { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? demoPassword, role: "TI", label: "Tecnologia da Informação" },
+  { username: "geos", password: process.env.NEXT_PUBLIC_LP_GEOS_PASSWORD ?? demoPassword, role: "GEOS", label: "GEOS / GO / GEU" },
+  { username: "comercial", password: process.env.NEXT_PUBLIC_LP_COMERCIAL_PASSWORD ?? demoPassword, role: "Comercial", label: "Comercial" },
+  { username: "gesu", password: process.env.NEXT_PUBLIC_LP_GESU_PASSWORD ?? demoPassword, role: "GESU", label: "Gerência de Suprimentos" },
+  { username: "administracao", password: process.env.NEXT_PUBLIC_LP_ADMINISTRACAO_PASSWORD ?? demoPassword, role: "Administracao", label: "Administração" },
+  { username: "rh", password: process.env.NEXT_PUBLIC_LP_RH_PASSWORD ?? demoPassword, role: "RH", label: "Recursos Humanos" },
+  { username: "manutencao", password: process.env.NEXT_PUBLIC_LP_MANUTENCAO_PASSWORD ?? demoPassword, role: "Manutencao", label: "Manutenção" },
+  { username: "pcp", password: process.env.NEXT_PUBLIC_LP_PCP_PASSWORD ?? demoPassword, role: "PCP", label: "PCP" },
 ];
 
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
