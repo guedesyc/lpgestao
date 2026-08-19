@@ -1168,7 +1168,7 @@ body {
 .topline { align-items:flex-end; border-bottom:1px solid var(--border-subtle); gap:24px; margin-bottom:28px; padding:8px 0 24px; }
 .topline { position:relative; }
 .topline > div:first-child { margin:0 auto; text-align:center; }
-.topline .upload-button { position:absolute; right:0; bottom:24px; }
+.topline .upload-button { position:absolute; right:0; bottom:68px; }
 .app-brandline { align-items:center; display:flex; gap:14px; margin-bottom:28px; }
 .app-brandline img { background:#fff; border:2px solid var(--brand-secondary); border-radius:50%; box-shadow:0 8px 20px rgba(6,42,66,.14); height:64px; object-fit:contain; padding:3px; width:64px; }
 .app-brandline h1 { color:var(--lp-navy-950); font-size:clamp(2rem, 3vw, 3rem); letter-spacing:-.04em; line-height:1; margin:0; }
