@@ -392,6 +392,7 @@ export default function Home() {
   const [imported, setImported] = useState(false);
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
   const [importedFileName, setImportedFileName] = useState("");
+  const [activeCapId, setActiveCapId] = useState<string | null>(null);
   const [importError, setImportError] = useState("");
   const [unitName, setUnitName] = useState("Cozinha Central Lisboa");
   const [inaugurationDate, setInaugurationDate] = useState("2026-09-25");
@@ -401,6 +402,7 @@ export default function Home() {
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
   const [profileFilterReady, setProfileFilterReady] = useState(false);
   const [responseDays, setResponseDays] = useState<Record<number, number>>(() => Object.fromEntries(initialTasks.map((task) => [task.id, 10])));
+  const [responseDaysUpdatedAt, setResponseDaysUpdatedAt] = useState<Record<number, string>>({});
   const [collapsedSectors, setCollapsedSectors] = useState<Record<string, boolean>>({});
   const [showCapChanges, setShowCapChanges] = useState(false);
 
@@ -416,8 +418,28 @@ export default function Home() {
       const storedCap = window.localStorage.getItem("lpgestao:cap-items");
       const storedRegistry = window.localStorage.getItem("lpgestao:cap-registry");
       const storedTasks = window.localStorage.getItem("lpgestao:tasks");
+      const storedResponseDays = window.localStorage.getItem("lpgestao:response-days");
       if (storedDecisions) setDecisions(JSON.parse(storedDecisions) as Record<string, ItemDecision>);
       if (storedTasks) setTasks(JSON.parse(storedTasks) as typeof initialTasks);
+      const currentDay = dateInputValue(today);
+      if (storedResponseDays) {
+        const parsedResponse = JSON.parse(storedResponseDays) as { values?: Record<string, number>; updatedAt?: Record<string, string> };
+        const storedValues = parsedResponse.values ?? {};
+        const storedDates = parsedResponse.updatedAt ?? {};
+        const adjustedValues: Record<number, number> = {};
+        const adjustedDates: Record<number, string> = {};
+        for (const task of initialTasks) {
+          const value = Number.isFinite(storedValues[String(task.id)]) ? storedValues[String(task.id)] : 10;
+          const lastDate = storedDates[String(task.id)] || currentDay;
+          const elapsed = Math.max(0, Math.floor((new Date(`${currentDay}T00:00:00`).getTime() - new Date(`${lastDate}T00:00:00`).getTime()) / 86400000));
+          adjustedValues[task.id] = Math.max(0, value - elapsed);
+          adjustedDates[task.id] = currentDay;
+        }
+        setResponseDays(adjustedValues);
+        setResponseDaysUpdatedAt(adjustedDates);
+      } else {
+        setResponseDaysUpdatedAt(Object.fromEntries(initialTasks.map((task) => [task.id, currentDay])));
+      }
       const parsedCap = storedCap ? JSON.parse(storedCap) as CapItem[] : [];
       if (storedRegistry) {
         const parsedRegistry = JSON.parse(storedRegistry) as CapRegistryEntry[];
@@ -467,6 +489,11 @@ export default function Home() {
     window.localStorage.setItem("lpgestao:tasks", JSON.stringify(tasks));
   }, [tasks, workflowStorageReady]);
 
+  useEffect(() => {
+    if (!workflowStorageReady) return;
+    window.localStorage.setItem("lpgestao:response-days", JSON.stringify({ values: responseDays, updatedAt: responseDaysUpdatedAt }));
+  }, [responseDays, responseDaysUpdatedAt, workflowStorageReady]);
+
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   // GEOS e Comercial são os únicos perfis com visão completa. Os demais só
   // passam pela barreira quando o setor do item é exatamente o seu setor.
@@ -507,11 +534,16 @@ export default function Home() {
       setDecisions({});
       setImportedFileName(file.name);
       const registeredUnit = detectedUnitName || unitDraft.trim() || "Unidade sem nome";
+      const nextCapId = `cap-${Date.now()}`;
+      setActiveCapId(nextCapId);
       setCapRegistry((current) => {
-        const nextEntry: CapRegistryEntry = { id: `cap-${Date.now()}`, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems, inaugurationDate };
-        return [...current.filter((entry) => entry.unitName !== registeredUnit), nextEntry];
+        const nextEntry: CapRegistryEntry = { id: nextCapId, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems, inaugurationDate };
+        return [...current.filter((entry) => entry.fileName !== file.name), nextEntry];
       });
-      if (detectedUnitName) setUnitName(detectedUnitName);
+      if (detectedUnitName) {
+        setUnitDraft(detectedUnitName);
+        setUnitName(detectedUnitName);
+      }
       setImported(true);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Não foi possível ler esta CAP.");
@@ -531,6 +563,7 @@ export default function Home() {
     setLoginError("");
     setLoginPassword("");
     setUnitConfirmed(false);
+    setActiveCapId(null);
     setCapRegistryView(null);
     setUnitSearch("");
     setAppliedUnitSearch("");
@@ -541,6 +574,13 @@ export default function Home() {
     setUnitConfirmed(false);
     setLoginUser("");
     setLoginPassword("");
+    setActiveCapId(null);
+  }
+
+  function updateInaugurationDate(value: string) {
+    setInaugurationDate(value);
+    if (!activeCapId) return;
+    setCapRegistry((current) => current.map((entry) => entry.id === activeCapId ? { ...entry, inaugurationDate: value } : entry));
   }
 
   function confirmCapItem(itemId: string) {
@@ -619,6 +659,7 @@ export default function Home() {
   function updateResponseDays(taskId: number, value: number) {
     const days = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
     setResponseDays((current) => ({ ...current, [taskId]: days }));
+    setResponseDaysUpdatedAt((current) => ({ ...current, [taskId]: dateInputValue(today) }));
     setTasks((current) => current.map((task) => task.id === taskId ? { ...task, status: days <= 2 ? "Risco" : task.status === "Risco" ? "Em analise" : task.status } : task));
   }
 
@@ -688,22 +729,22 @@ export default function Home() {
             <p className="eyebrow">CAPs disponíveis</p>
             {!availableCaps.length && <p className="empty-registry">Nenhuma CAP real cadastrada para esta unidade. GEOS/Comercial devem cadastrar a CAP base.</p>}
             {capRegistryView === "PENDENTE" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Pendentes <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); if (cap.inaugurationDate) setInaugurationDate(cap.inaugurationDate); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
                 <strong className="registry-pending">PENDENTE</strong>
               </button>
             ))}</section>}
             {capRegistryView === "REALIZADA" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Realizadas <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); if (cap.inaugurationDate) setInaugurationDate(cap.inaugurationDate); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span><strong className="registry-done">REALIZADA</strong>
               </button>
             ))}</section>}
             {capRegistryView && selectedCaps.length === 0 && <p className="empty-registry">Nenhuma unidade encontrada neste filtro.</p>}
           </div>
           <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} readOnly={!canEditUnit} onChange={(event) => setUnitDraft(event.target.value)} /></label>
-          {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="field-label">Data prevista de inauguração<input className="unit-select-input" type="date" value={inaugurationDate} onChange={(event) => setInaugurationDate(event.target.value)} /></label>}
+          {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="field-label">Data prevista de inauguração<input className="unit-select-input" type="date" value={inaugurationDate} onChange={(event) => updateInaugurationDate(event.target.value)} /></label>}
           {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "Trocar CAP da unidade" : "Cadastrar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Disponível somente para GEOS/Comercial."}</span></label>}
-          <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported || !inaugurationDate} onClick={() => { const confirmedUnit = unitDraft.trim() || "Unidade sem nome"; setUnitName(confirmedUnit); setCapRegistry((current) => current.map((entry) => entry.fileName === importedFileName ? { ...entry, unitName: confirmedUnit, inaugurationDate } : entry)); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
+          <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported || !inaugurationDate} onClick={() => { const confirmedUnit = unitDraft.trim() || "Unidade sem nome"; setUnitName(confirmedUnit); setCapRegistry((current) => current.map((entry) => entry.id === activeCapId ? { ...entry, unitName: confirmedUnit, inaugurationDate } : entry)); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
           {importError && <p className="import-error" role="alert">{importError}</p>}
         </section>
       </main>
@@ -762,7 +803,7 @@ export default function Home() {
                 type="date"
                 value={inaugurationDate}
                 disabled={!canSetInaugurationDate}
-                onChange={(event) => setInaugurationDate(event.target.value)}
+                onChange={(event) => updateInaugurationDate(event.target.value)}
               />
               {!canSetInaugurationDate && <small>Definida por GEOS/Comercial</small>}
             </label>
@@ -777,6 +818,7 @@ export default function Home() {
               <span>Data do dia</span>
               <strong>{formatDate(todayValue)}</strong>
             </div>
+            <button className="text-button dashboard-signout" type="button" onClick={signOut}>Sair</button>
             {canEditUnit && <label className="upload-button">
               <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
               {imported ? "Trocar CAP" : "Importar CAP XLSM"}
