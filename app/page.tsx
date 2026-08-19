@@ -603,6 +603,9 @@ export default function Home() {
         : { status: "Aguardando GEOS", kind: "confirmacao", submittedAt: new Date().toISOString() };
       return next;
     });
+    if (hasFullCapAccess) {
+      setTasks((currentTasks) => currentTasks.map((task) => task.sector === sector ? { ...task, status: "Concluido" } : task));
+    }
   }
 
   function openProposal(item: CapItem) {
@@ -816,15 +819,15 @@ export default function Home() {
             </p>
           </div>
           <div className="topline-actions">
+            {canEditUnit && <label className="upload-button">
+              <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
+              {imported ? "Trocar CAP" : "Importar CAP XLSM"}
+            </label>}
             <div className="today-display" aria-label={`Data de hoje: ${formatDate(todayValue)}`}>
               <span>Data do dia</span>
               <strong>{formatDate(todayValue)}</strong>
             </div>
             <button className="text-button dashboard-signout" type="button" onClick={signOut}>Sair</button>
-            {canEditUnit && <label className="upload-button">
-              <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
-              {imported ? "Trocar CAP" : "Importar CAP XLSM"}
-            </label>}
           </div>
         </header>
 
