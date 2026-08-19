@@ -39,6 +39,10 @@ jobs:
             cp -R dist/client/lpgestao/. dist/client/
             rm -rf dist/client/lpgestao
           fi
+          # With output: export, vinext writes the route document at the
+          # project root. Include it in the Pages artifact as the entrypoint.
+          cp index.html dist/client/index.html
+          if [ -f index.rsc ]; then cp index.rsc dist/client/index.rsc; fi
       - name: Disable Jekyll processing
         run: touch dist/client/.nojekyll
       - name: Upload Pages artifact
