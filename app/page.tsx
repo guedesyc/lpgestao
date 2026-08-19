@@ -137,6 +137,18 @@ function clean(value: unknown) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 }
 
+function dateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDate(value: string) {
+  if (!value) return "Data não definida";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
 function numberValue(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const text = String(value ?? "").replace(/R\$\s?/gi, "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
@@ -257,6 +269,8 @@ export default function Home() {
   const [importedFileName, setImportedFileName] = useState("");
   const [importError, setImportError] = useState("");
   const [unitName, setUnitName] = useState("Cozinha Central Lisboa");
+  const [inaugurationDate, setInaugurationDate] = useState("2026-09-25");
+  const [today] = useState(() => new Date());
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
@@ -273,6 +287,11 @@ export default function Home() {
   const capSector = profile.scope === "completo" && activeSector !== "Todos" ? activeSector : profile.scope;
   const visibleCapItems = capItems.filter((item) => capSector === "completo" || item.sector === capSector);
   const importedTotal = capItems.reduce((sum, item) => sum + item.total, 0);
+  const todayValue = dateInputValue(today);
+  const daysUntilInauguration = inaugurationDate
+    ? Math.ceil((new Date(`${inaugurationDate}T00:00:00`).getTime() - new Date(`${todayValue}T00:00:00`).getTime()) / 86400000)
+    : 0;
+  const canSetInaugurationDate = role === "GEOS" || role === "Comercial";
 
   async function importCap(file: File) {
     setImportError("");
@@ -334,15 +353,32 @@ export default function Home() {
           <div>
             <p className="eyebrow">Unidade em implantacao</p>
             <input className="unit-name-input" aria-label="Nome da unidade" value={unitName} onChange={(event) => setUnitName(event.target.value)} />
+            <label className="inauguration-field">
+              <span>Data prevista de inauguração</span>
+              <input
+                aria-label="Data prevista de inauguração"
+                type="date"
+                value={inaugurationDate}
+                disabled={!canSetInaugurationDate}
+                onChange={(event) => setInaugurationDate(event.target.value)}
+              />
+              {!canSetInaugurationDate && <small>Definida por GEOS/Comercial</small>}
+            </label>
             <p>
               Acompanhamento pos-CAP com responsabilidade clara, evidencias e
               riscos visiveis ate a inauguracao.
             </p>
           </div>
-          <label className="upload-button">
-            <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
-            {imported ? "Trocar CAP" : "Importar CAP XLSM"}
-          </label>
+          <div className="topline-actions">
+            <div className="today-display" aria-label={`Data de hoje: ${formatDate(todayValue)}`}>
+              <span>Hoje</span>
+              <strong>{formatDate(todayValue)}</strong>
+            </div>
+            <label className="upload-button">
+              <input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />
+              {imported ? "Trocar CAP" : "Importar CAP XLSM"}
+            </label>
+          </div>
         </header>
 
         <section className="metrics" aria-label="Indicadores do projeto">
@@ -352,9 +388,9 @@ export default function Home() {
             <span>{imported ? `${capItems.length} itens importados` : "versao unica bloqueada"}</span>
           </article>
           <article>
-            <small>Prazo ate inauguracao</small>
-            <strong>43 dias</strong>
-            <span>SLAs calculados pela data alvo</span>
+            <small>Inauguração · {formatDate(inaugurationDate)}</small>
+            <strong>{daysUntilInauguration >= 0 ? daysUntilInauguration : 0} dias</strong>
+            <span>{daysUntilInauguration >= 0 ? "faltam até a data definida" : "data de inauguração ultrapassada"}</span>
           </article>
           <article>
             <small>Tarefas concluidas</small>

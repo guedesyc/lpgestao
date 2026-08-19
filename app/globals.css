@@ -171,6 +171,32 @@ a {
   justify-content: space-between;
 }
 
+.topline-actions {
+  align-items: end;
+  display: flex;
+  gap: 12px;
+}
+
+.today-display {
+  background: var(--surface-brand-tint);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 2px;
+  min-width: 128px;
+  padding: 9px 12px;
+}
+
+.today-display span,
+.today-display strong {
+  color: var(--lp-navy-800);
+  font-size: var(--fs-caption);
+}
+
+.today-display strong {
+  font-size: var(--fs-body-sm);
+}
+
 .topline h1 {
   font-size: clamp(2rem, 4vw, 3.8rem);
   line-height: 1;
@@ -491,6 +517,11 @@ a {
     flex-direction: column;
   }
 
+  .topline-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .topline button {
     width: 100%;
   }
@@ -614,6 +645,39 @@ body {
 .unit-name-input:hover,
 .unit-name-input:focus {
   border-bottom-color: var(--brand-secondary);
+}
+
+.inauguration-field {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -2px 0 12px;
+}
+
+.inauguration-field span {
+  color: var(--text-muted);
+  font-size: var(--fs-body-sm);
+  font-weight: var(--fw-bold);
+}
+
+.inauguration-field input {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  padding: 7px 9px;
+}
+
+.inauguration-field input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.inauguration-field small {
+  color: var(--text-faint);
+  font-size: var(--fs-caption);
 }
 
 .eyebrow {
