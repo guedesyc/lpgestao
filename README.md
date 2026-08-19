@@ -1,4 +1,55 @@
-# vinext-starter
+# LP Gestão
+
+Sistema local de acompanhamento pós-CAP para início e fechamento de unidades.
+O protótipo organiza a CAP por setor, controla confirmações e substituições,
+mantém o fluxo Kanban e destaca riscos e conclusões para GEOS, Comercial e os
+perfis setoriais.
+
+Repositório: https://github.com/guedesyc/lpgestao
+
+Aplicação publicada (após o primeiro workflow do GitHub Pages):
+https://guedesyc.github.io/lpgestao/
+
+O workflow `.github/workflows/deploy-pages.yml` gera uma exportação estática;
+visitantes não precisam instalar Node.js ou qualquer dependência.
+
+## Estado atual
+
+- GEOS e Comercial têm visão completa e podem importar/trocar a CAP.
+- TI, GESU, Administração, RH, Manutenção e PCP veem somente seu setor.
+- Cada setor pode confirmar itens individualmente ou usar **Confirmar Todos**.
+- Substituições e novos valores só entram na CAP final após aprovação da GEOS.
+- A aba MÃO DE OBRA recalcula o custo mensal com a composição da coluna AG.
+- O Kanban sinaliza Aguardando Setor, Risco e Concluído com cores próprias.
+- Setores com todos os itens aprovados ou tarefas concluídas aparecem como
+  **Tudo OK** em Responsáveis.
+
+## Desenvolvimento local
+
+```bash
+npm install
+npm run dev
+```
+
+Acesse http://localhost:3000. Para validar antes de publicar:
+
+```bash
+npm test
+```
+
+### Credenciais locais de demonstração
+
+As senhas podem ser configuradas por variáveis `NEXT_PUBLIC_LP_*`. Quando essas
+variáveis não existem — como no GitHub Pages — o protótipo usa a senha de
+demonstração `1234` para todos os perfis:
+
+`ti`, `geos`, `comercial`, `gesu`, `administracao`, `rh`, `manutencao` e `pcp`.
+
+Como o Pages é estático, CAPs importadas, decisões e tarefas alteradas ficam no
+`localStorage` de cada navegador. Para compartilhar esses dados entre usuários
+será necessário um backend/banco de dados na próxima etapa.
+
+---
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and

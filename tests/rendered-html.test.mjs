@@ -30,11 +30,9 @@ test("server-renders the post-CAP implementation prototype", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>LP Gestao \| Implantacao pos-CAP<\/title>/i);
-  assert.match(html, /Cozinha Central Lisboa/);
-  assert.match(html, /CAP setorizada/);
-  assert.match(html, /GEOS \/ GO \/ GEU/);
-  assert.match(html, /GESU enxerga somente a fatia de suprimentos/);
-  assert.match(html, /Cada setor aprova sua propria excecao/);
+  assert.match(html, /Entrar no LP Gestão/);
+  assert.match(html, /Perfil de demonstracao|Usuário/);
+  assert.match(html, /Acesso TI criado para teste/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton|codex-preview/i);
 });
 
