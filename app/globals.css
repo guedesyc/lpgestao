@@ -1158,6 +1158,7 @@ body {
 .workflow-group-toggle { flex:1; display:flex; justify-content:space-between; align-items:center; border:0; background:transparent; color:var(--text-strong); padding:4px 0; cursor:pointer; text-align:left; }
 .workflow-group-toggle:hover { color:var(--teal-700); }
 .workflow-group-toggle strong { color:var(--teal-700); font-size:12px; }
+.workflow-group-total { color:var(--teal-700); font-weight:800; white-space:nowrap; }
 .confirm-all-button { flex:0 0 auto; white-space:nowrap; }
 .cap-registry-section { display:grid; gap:10px; margin-top:16px; }
 .cap-registry-section h3 { display:flex; align-items:center; gap:8px; margin:0; color:var(--text-strong); font-size:14px; }
