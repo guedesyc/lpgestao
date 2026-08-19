@@ -39,26 +39,6 @@ jobs:
             cp -R dist/client/lpgestao/. dist/client/
             rm -rf dist/client/lpgestao
           fi
-          # With output: export, vinext writes the route document at the
-          # project root. Include it in the Pages artifact as the entrypoint.
-          # Keep the generated entrypoint aligned with the hashed assets from
-          # this build; the checked-in snapshot may contain older hashes.
-          css_file=$(find dist/client/_next/static/css -maxdepth 1 -type f -name '*.css' -printf '%f' | head -n 1)
-          js_file=$(find dist/client/_next/static/chunks -maxdepth 1 -type f -name 'index-*.js' -printf '%f' | head -n 1)
-          runtime_file=$(find dist/client/_next/static/chunks -maxdepth 1 -type f -name 'rolldown-runtime-*.js' -printf '%f' | head -n 1)
-          framework_file=$(find dist/client/_next/static/chunks -maxdepth 1 -type f -name 'framework-*.js' -printf '%f' | head -n 1)
-          layout_file=$(find dist/client/_next/static/chunks -maxdepth 1 -type f -name 'layout-segment-context-*.js' -printf '%f' | head -n 1)
-          page_file=$(find dist/client/_next/static/chunks -maxdepth 1 -type f -name 'page-*.js' -printf '%f' | head -n 1)
-          sed -e "s#index\.[A-Za-z0-9_-]*\.css#$css_file#g" \
-              -e "s#index-[A-Za-z0-9_-]*\.js#$js_file#g" \
-              -e "s#rolldown-runtime-[A-Za-z0-9_-]*\.js#$runtime_file#g" \
-              -e "s#framework-[A-Za-z0-9_-]*\.js#$framework_file#g" \
-              -e "s#layout-segment-context-[A-Za-z0-9_-]*\.js#$layout_file#g" \
-              -e "s#page-[A-Za-z0-9_-]*\.js#$page_file#g" \
-              index.html > dist/client/index.html
-          if [ -f index.rsc ]; then
-            sed -e "s#index\.[A-Za-z0-9_-]*\.css#$css_file#g" index.rsc > dist/client/index.rsc
-          fi
       - name: Disable Jekyll processing
         run: touch dist/client/.nojekyll
       - name: Upload Pages artifact

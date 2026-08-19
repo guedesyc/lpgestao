@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("exports the post-CAP implementation prototype for GitHub Pages", async () => {
-  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const html = await readFile(new URL("../dist/client/index.html", import.meta.url), "utf8");
   assert.match(html, /<title>LP Gestao \| Implantacao pos-CAP<\/title>/i);
   assert.match(html, /Entrar no LP Gestão/);
   assert.match(html, /Perfil de demonstracao|Usuário/);

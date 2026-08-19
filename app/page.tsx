@@ -26,7 +26,7 @@ type ItemDecision = {
   submittedAt: string;
   rejectionNote?: string;
 };
-type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[] };
+type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[]; inaugurationDate?: string };
 
 const localUsers: Array<{ username: string; password: string; role: AuthRole; label: string }> = [
   { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? demoPassword, role: "TI", label: "Tecnologia da Informação" },
@@ -487,6 +487,9 @@ export default function Home() {
     const activeSectorAllowsItem = activeSector === "Todos" || item.sector === activeSector;
     return profileAllowsItem && activeSectorAllowsItem;
   });
+  // Perfis setoriais nunca recebem itens ou totais dos demais setores.
+  // GEOS e Comercial são os únicos perfis com acesso à CAP completa.
+  const profileCapItems = hasFullCapAccess ? capItems : capItems.filter((item) => item.sector === role);
   const importedTotal = profileCapItems.reduce((sum, item) => sum + item.total, 0);
   const todayValue = dateInputValue(today);
   const daysUntilInauguration = inaugurationDate
@@ -505,7 +508,7 @@ export default function Home() {
       setImportedFileName(file.name);
       const registeredUnit = detectedUnitName || unitDraft.trim() || "Unidade sem nome";
       setCapRegistry((current) => {
-        const nextEntry: CapRegistryEntry = { id: `cap-${Date.now()}`, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems };
+        const nextEntry: CapRegistryEntry = { id: `cap-${Date.now()}`, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems, inaugurationDate };
         return [...current.filter((entry) => entry.unitName !== registeredUnit), nextEntry];
       });
       if (detectedUnitName) setUnitName(detectedUnitName);
@@ -685,21 +688,22 @@ export default function Home() {
             <p className="eyebrow">CAPs disponíveis</p>
             {!availableCaps.length && <p className="empty-registry">Nenhuma CAP real cadastrada para esta unidade. GEOS/Comercial devem cadastrar a CAP base.</p>}
             {capRegistryView === "PENDENTE" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Pendentes <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); if (cap.inaugurationDate) setInaugurationDate(cap.inaugurationDate); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
                 <strong className="registry-pending">PENDENTE</strong>
               </button>
             ))}</section>}
             {capRegistryView === "REALIZADA" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Realizadas <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); if (cap.inaugurationDate) setInaugurationDate(cap.inaugurationDate); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span><strong className="registry-done">REALIZADA</strong>
               </button>
             ))}</section>}
             {capRegistryView && selectedCaps.length === 0 && <p className="empty-registry">Nenhuma unidade encontrada neste filtro.</p>}
           </div>
           <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} readOnly={!canEditUnit} onChange={(event) => setUnitDraft(event.target.value)} /></label>
+          {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="field-label">Data prevista de inauguração<input className="unit-select-input" type="date" value={inaugurationDate} onChange={(event) => setInaugurationDate(event.target.value)} /></label>}
           {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "Trocar CAP da unidade" : "Cadastrar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Disponível somente para GEOS/Comercial."}</span></label>}
-          <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported} onClick={() => { setUnitName(unitDraft.trim() || "Unidade sem nome"); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
+          <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported || !inaugurationDate} onClick={() => { const confirmedUnit = unitDraft.trim() || "Unidade sem nome"; setUnitName(confirmedUnit); setCapRegistry((current) => current.map((entry) => entry.fileName === importedFileName ? { ...entry, unitName: confirmedUnit, inaugurationDate } : entry)); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
           {importError && <p className="import-error" role="alert">{importError}</p>}
         </section>
       </main>
@@ -722,7 +726,7 @@ export default function Home() {
         </nav>
         <div className="sidebar-card">
           <small>Data alvo</small>
-          <strong>25/09/2026</strong>
+          <strong>{formatDate(inaugurationDate)}</strong>
           <span>{riskCount ? `${riskCount} risco(s): ${riskTasks.map((task) => task.sector).join(", ")}` : "Sem Risco"}</span>
         </div>
         <div className="profile-switcher">
@@ -770,7 +774,7 @@ export default function Home() {
           </div>
           <div className="topline-actions">
             <div className="today-display" aria-label={`Data de hoje: ${formatDate(todayValue)}`}>
-              <span>Hoje</span>
+              <span>Data do dia</span>
               <strong>{formatDate(todayValue)}</strong>
             </div>
             {canEditUnit && <label className="upload-button">
