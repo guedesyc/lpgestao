@@ -26,7 +26,7 @@ type ItemDecision = {
   submittedAt: string;
   rejectionNote?: string;
 };
-type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[]; inaugurationDate?: string };
+type CapRegistryEntry = { id: string; unitName: string; fileName: string; status: "REALIZADA" | "PENDENTE"; items: CapItem[]; inaugurationDate?: string; billingTotal?: number };
 
 const localUsers: Array<{ username: string; password: string; role: AuthRole; label: string }> = [
   { username: "ti", password: process.env.NEXT_PUBLIC_LP_TI_PASSWORD ?? demoPassword, role: "TI", label: "Tecnologia da Informação" },
@@ -369,6 +369,21 @@ function extractUnitName(data: ArrayBuffer) {
   return "";
 }
 
+function extractBillingTotal(data: ArrayBuffer) {
+  const workbook = XLSX.read(data, { type: "array", cellDates: true, cellFormula: false });
+  const sheetName = workbook.SheetNames.find((name) => clean(name) === "PRECO FINAL");
+  if (!sheetName) return 0;
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: null, raw: true });
+  const headerIndex = rows.findIndex((row) => row.some((cell) => clean(cell) === "FATURAMENTO"));
+  if (headerIndex < 0) return 0;
+  const columnIndex = rows[headerIndex].findIndex((cell) => clean(cell) === "FATURAMENTO");
+  for (let rowIndex = headerIndex + 1; rowIndex < rows.length; rowIndex += 1) {
+    const value = numberValue(rows[rowIndex][columnIndex]);
+    if (value > 0) return value;
+  }
+  return 0;
+}
+
 export default function Home() {
   const [activeSector, setActiveSector] = useState<Sector | "Todos">("Todos");
   const [role, setRole] = useState<Role>("GEOS");
@@ -393,6 +408,7 @@ export default function Home() {
   const [importedCapItems, setImportedCapItems] = useState<CapItem[]>([]);
   const [importedFileName, setImportedFileName] = useState("");
   const [activeCapId, setActiveCapId] = useState<string | null>(null);
+  const [billingTotal, setBillingTotal] = useState(0);
   const [importError, setImportError] = useState("");
   const [unitName, setUnitName] = useState("Cozinha Central Lisboa");
   const [inaugurationDate, setInaugurationDate] = useState("2026-09-25");
@@ -452,6 +468,7 @@ export default function Home() {
           const sourceItems = parsedCap.length > registeredItems.length ? parsedCap : registeredItems;
           setImportedCapItems(sourceItems);
           setImported(true);
+          setBillingTotal(realRegistry[0].billingTotal ?? 0);
         } else if (parsedCap.length > 5) {
           // Migrate an older full CAP, but never revive the five-item demo CAP.
           setImportedCapItems(parsedCap);
@@ -527,17 +544,20 @@ export default function Home() {
   async function importCap(file: File) {
     setImportError("");
     try {
-      const parsedItems = parseCapWorkbook(await file.arrayBuffer());
+      const data = await file.arrayBuffer();
+      const parsedItems = parseCapWorkbook(data);
       if (!parsedItems.length) throw new Error("Nenhum item previsto foi encontrado nas abas conhecidas.");
-      const detectedUnitName = extractUnitName(await file.arrayBuffer());
+      const detectedUnitName = extractUnitName(data);
+      const detectedBillingTotal = extractBillingTotal(data);
       setImportedCapItems(parsedItems);
       setDecisions({});
       setImportedFileName(file.name);
+      setBillingTotal(detectedBillingTotal);
       const registeredUnit = detectedUnitName || unitDraft.trim() || "Unidade sem nome";
       const nextCapId = `cap-${Date.now()}`;
       setActiveCapId(nextCapId);
       setCapRegistry((current) => {
-        const nextEntry: CapRegistryEntry = { id: nextCapId, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems, inaugurationDate };
+        const nextEntry: CapRegistryEntry = { id: nextCapId, unitName: registeredUnit, fileName: file.name, status: "PENDENTE", items: parsedItems, inaugurationDate, billingTotal: detectedBillingTotal };
         return [...current.filter((entry) => entry.fileName !== file.name), nextEntry];
       });
       if (detectedUnitName) {
@@ -735,13 +755,13 @@ export default function Home() {
             </div>
             {!availableCaps.length && <p className="empty-registry">Nenhuma CAP cadastrada. Use “+ Acrescentar CAP” para registrar uma nova unidade.</p>}
             {capRegistryView === "PENDENTE" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Pendentes <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setBillingTotal(cap.billingTotal ?? 0); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
                 <strong className="registry-pending">PENDENTE</strong>
               </button>
             ))}</section>}
             {capRegistryView === "REALIZADA" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Realizadas <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
-              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
+              <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setBillingTotal(cap.billingTotal ?? 0); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span><strong className="registry-done">REALIZADA</strong>
               </button>
             ))}</section>}
@@ -889,6 +909,11 @@ export default function Home() {
                 {showResponsibilities && sectorComplete(sector.id) && <b className="sector-ok">✓ Tudo OK</b>}
               </article>
             ))}
+          </div>
+          <div className="billing-summary">
+            <span>Valor total de faturamento</span>
+            <strong>{billingTotal > 0 ? `R$ ${billingTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Não informado na CAP"}</strong>
+            <small>Conforme a aba PREÇO FINAL · FATURAMENTO</small>
           </div>
         </section>}
 
