@@ -726,8 +726,11 @@ export default function Home() {
           </div>
           {capRegistryView && <form className="unit-search" onSubmit={(event) => { event.preventDefault(); setAppliedUnitSearch(unitSearch); }}><input aria-label="Pesquisar unidade" placeholder="Pesquisar pelo nome da unidade" value={unitSearch} onChange={(event) => setUnitSearch(event.target.value)} /><button className="secondary-button" type="submit">Pesquisar</button></form>}
           <div className="cap-registry-list">
-            <p className="eyebrow">CAPs disponíveis</p>
-            {!availableCaps.length && <p className="empty-registry">Nenhuma CAP real cadastrada para esta unidade. GEOS/Comercial devem cadastrar a CAP base.</p>}
+            <div className="registry-list-heading">
+              <p className="eyebrow">CAPs disponíveis</p>
+              {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="secondary-button cap-add-button"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} />+ Acrescentar CAP</label>}
+            </div>
+            {!availableCaps.length && <p className="empty-registry">Nenhuma CAP cadastrada. Use “+ Acrescentar CAP” para registrar uma nova unidade.</p>}
             {capRegistryView === "PENDENTE" && selectedCaps.length > 0 && <section className="cap-registry-section"><h3>Pendentes <span>{selectedCaps.length}</span></h3>{selectedCaps.map((cap) => (
               <button className="cap-registry-card" type="button" key={cap.id} onClick={() => { setActiveCapId(cap.id); setImportedCapItems(cap.items); setImportedFileName(cap.fileName); setImported(true); setUnitDraft(cap.unitName); setUnitName(cap.unitName); setInaugurationDate(cap.inaugurationDate || "2026-09-25"); setUnitConfirmed(true); }}>
                 <span><b>CAP - {cap.unitName}</b><small>{cap.fileName}</small></span>
@@ -743,7 +746,6 @@ export default function Home() {
           </div>
           <label className="field-label">Unidade<input className="unit-select-input" value={unitDraft} readOnly={!canEditUnit} onChange={(event) => setUnitDraft(event.target.value)} /></label>
           {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="field-label">Data prevista de inauguração<input className="unit-select-input" type="date" value={inaugurationDate} onChange={(event) => updateInaugurationDate(event.target.value)} /></label>}
-          {(loggedUser.role === "GEOS" || loggedUser.role === "Comercial") && <label className="upload-dropzone"><input type="file" accept=".xlsm,.xlsx" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCap(file); }} /><strong>{imported ? "Trocar CAP da unidade" : "Cadastrar CAP da unidade"}</strong><span>{imported ? `${capItems.length} itens encontrados na CAP.` : "Disponível somente para GEOS/Comercial."}</span></label>}
           <div className="unit-actions"><button className="primary-button" type="button" disabled={!imported || !inaugurationDate} onClick={() => { const confirmedUnit = unitDraft.trim() || "Unidade sem nome"; setUnitName(confirmedUnit); setCapRegistry((current) => current.map((entry) => entry.id === activeCapId ? { ...entry, unitName: confirmedUnit, inaugurationDate } : entry)); setUnitConfirmed(true); }}>Continuar para os itens</button></div>
           {importError && <p className="import-error" role="alert">{importError}</p>}
         </section>
