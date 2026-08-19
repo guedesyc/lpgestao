@@ -7,6 +7,7 @@ type Sector = "GEOS" | "Administracao" | "GESU" | "TI" | "PCP" | "RH" | "Manuten
 type Status = "Em analise" | "Aguardando setor" | "Em execucao" | "Risco" | "Concluido";
 type Role = Sector | "Comercial";
 type CapItem = { id: string; item: string; sector: Sector; cap: string; decision: string; state: string; quantity: number; unitPrice: number; total: number; source: string };
+type CapBlock = { quantityIndex: number; descriptionIndex: number; unitIndex: number; totalIndex: number };
 
 const profiles: Array<{ role: Role; email: string; scope: "completo" | Sector }> = [
   { role: "GEOS", email: "geos@lemospassos.com", scope: "completo" },
@@ -156,6 +157,38 @@ function numberValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isQuantityHeader(label: string) {
+  return label === "QTD" || label === "QTD." || label.includes("QUANTIDADE") || label.includes("QTD NECESSARIA") || label === "ESCOLHER";
+}
+
+function isUnitHeader(label: string) {
+  return label.includes("VALOR UNIT") || label.includes("PRECO UNIT") || label.includes("CUSTO TOTAL");
+}
+
+function isTotalHeader(label: string) {
+  return label === "TOTAL" || label.startsWith("TOTAL ") || label.includes("TOTAL R");
+}
+
+function isDescriptionHeader(label: string) {
+  if (!label || isQuantityHeader(label) || isUnitHeader(label) || isTotalHeader(label)) return false;
+  return !["RESPON.", "RESPONSABILIDADE", "Nº ESCOLAS", "N ESCOLAS", "RATEIO", "OBS.", "OBS"].includes(label);
+}
+
+function detectBlock(labels: string[]): CapBlock | null {
+  const quantityIndex = labels.findIndex(isQuantityHeader);
+  const unitIndex = labels.findIndex(isUnitHeader);
+  const totalIndex = labels.findIndex(isTotalHeader);
+  if (unitIndex < 0 || totalIndex < 0) return null;
+
+  const descriptionIndex = labels.findIndex((label, index) => {
+    if (!isDescriptionHeader(label)) return false;
+    return index < unitIndex || (quantityIndex >= 0 && index < quantityIndex);
+  });
+
+  if (descriptionIndex < 0) return null;
+  return { quantityIndex, descriptionIndex, unitIndex, totalIndex };
+}
+
 function sectorForSheet(sheetName: string): Sector | null {
   const name = clean(sheetName);
   if (name === "INFORMATICA") return "TI";
@@ -171,7 +204,7 @@ function makeItem(sheetName: string, rowNumber: number, description: unknown, qu
   const qty = numberValue(quantity);
   const unit = numberValue(unitPrice);
   const amount = numberValue(total) || qty * unit;
-  if (!item || clean(item).startsWith("TOTAL") || (!qty && !amount)) return null;
+  if (!item || numberValue(item) || clean(item).startsWith("TOTAL") || (!qty && !amount)) return null;
   return {
     id: `${clean(sheetName).toLowerCase()}-${rowNumber}-${clean(item).slice(0, 24)}`,
     item,
@@ -210,22 +243,44 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
       continue;
     }
 
-    let block: { quantityIndex: number; descriptionIndex: number; unitIndex: number; totalIndex: number } | null = null;
+    if (sheet === "DESPESAS OPERACIONAIS") {
+      let totalIndex = -1;
+      rows.forEach((row, rowIndex) => {
+        const labels = row.map((cell) => clean(cell));
+        const detectedTotalIndex = labels.findIndex(isTotalHeader);
+        const startsBlock = labels.some((label) => label.startsWith("BLOCO "));
+        if (startsBlock && detectedTotalIndex >= 0) {
+          totalIndex = detectedTotalIndex;
+          return;
+        }
+
+        if (totalIndex < 0) return;
+        const description = row[0];
+        const normalizedDescription = clean(description);
+        if (
+          !normalizedDescription ||
+          normalizedDescription.startsWith("BLOCO ") ||
+          normalizedDescription.startsWith("TOTAL") ||
+          normalizedDescription.includes("FATURAMENTO") ||
+          normalizedDescription.includes("PRAZO CONTRATO") ||
+          normalizedDescription.includes("PERCENTUAL")
+        ) return;
+
+        const parsed = makeItem(sheetName, rowIndex + 1, description, 1, 0, row[totalIndex]);
+        if (parsed) items.push(parsed);
+      });
+      continue;
+    }
+
+    let block: CapBlock | null = null;
     rows.forEach((row, rowIndex) => {
       const labels = row.map((cell) => clean(cell));
-      const quantityIndex = labels.findIndex((cell) => cell === "QTD" || cell === "QTD." || cell.includes("QUANTIDADE"));
-      const unitIndex = labels.findIndex((cell) => cell.includes("VALOR UNIT") || cell.includes("PRECO UNIT") || cell.includes("CUSTO TOTAL"));
-      const totalIndex = labels.findIndex((cell) => cell === "TOTAL" || cell.startsWith("TOTAL ") || cell.includes("TOTAL R"));
+      const detectedBlock = detectBlock(labels);
 
       // Each operational tab is made of repeated blocks. Once a block header
       // is found, its column layout applies to the following item rows.
-      if (quantityIndex >= 0 && unitIndex >= 0 && totalIndex >= 0) {
-        block = {
-          quantityIndex,
-          descriptionIndex: quantityIndex < unitIndex ? unitIndex - 1 : quantityIndex - 1,
-          unitIndex,
-          totalIndex,
-        };
+      if (detectedBlock) {
+        block = detectedBlock;
         return;
       }
 
@@ -234,7 +289,7 @@ function parseCapWorkbook(data: ArrayBuffer): CapItem[] {
       const normalizedDescription = clean(description);
       if (!normalizedDescription || normalizedDescription.startsWith("TOTAL") || normalizedDescription.includes("TAXA") || normalizedDescription.includes("NUMERO DE PARCELAS")) return;
 
-      const parsed = makeItem(sheetName, rowIndex + 1, description, row[block.quantityIndex], row[block.unitIndex], row[block.totalIndex]);
+      const parsed = makeItem(sheetName, rowIndex + 1, description, block.quantityIndex >= 0 ? row[block.quantityIndex] : 1, row[block.unitIndex], row[block.totalIndex]);
       if (parsed) items.push(parsed);
     });
   }
@@ -277,6 +332,7 @@ export default function Home() {
 
   const profile = profiles.find((item) => item.role === role) ?? profiles[0];
   const canSee = (sector: Sector) => profile.scope === "completo" || profile.scope === sector;
+  const allowedSectors = sectors.filter((sector) => canSee(sector.id)).map((sector) => sector.id);
 
   const visibleTasks = useMemo(
     () => tasks.filter((task) => canSee(task.sector) && (activeSector === "Todos" || task.sector === activeSector)),
@@ -284,8 +340,11 @@ export default function Home() {
   );
 
   const capItems = importedCapItems.length ? importedCapItems : fallbackCapItems;
-  const capSector = profile.scope === "completo" && activeSector !== "Todos" ? activeSector : profile.scope;
-  const visibleCapItems = capItems.filter((item) => capSector === "completo" || item.sector === capSector);
+  const visibleCapItems = capItems.filter((item) => {
+    const profileAllowsItem = allowedSectors.includes(item.sector);
+    const activeSectorAllowsItem = activeSector === "Todos" || item.sector === activeSector;
+    return profileAllowsItem && activeSectorAllowsItem;
+  });
   const importedTotal = capItems.reduce((sum, item) => sum + item.total, 0);
   const todayValue = dateInputValue(today);
   const daysUntilInauguration = inaugurationDate
